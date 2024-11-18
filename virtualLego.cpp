@@ -106,8 +106,8 @@ public:
         float dz = this->center_z - ball.center_z;
         float distanceSquared = dx * dx + dy * dy + dz * dz;
 
-        // 두 구의 반지름의 합 계산(반지름값은 0.5로 고정)
-        float radiusSum = 0.5 + 0.5;
+        // 두 구의 반지름의 합 계산
+        float radiusSum = M_RADIUS*2;
 
         // 거리 제곱이 반지름 합의 제곱보다 작거나 같으면 충돌
         return distanceSquared <= (radiusSum * radiusSum);
