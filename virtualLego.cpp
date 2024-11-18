@@ -99,23 +99,19 @@ public:
 		m_pSphereMesh->DrawSubset(0);
     }
 	
-    bool hasIntersected(CSphere& ball) 
-	{
-		bool CSphere::hasIntersected(CSphere & ball) {
+    bool CSphere::hasIntersected(CSphere& ball) {
+        // 두 구의 중심 간 거리 계산
+        float dx = this->center_x - ball.center_x;
+        float dy = this->center_y - ball.center_y;
+        float dz = this->center_z - ball.center_z;
+        float distanceSquared = dx * dx + dy * dy + dz * dz;
 
-			float dx = this->center_x - ball.center_x;
-			float dy = this->center_y - ball.center_y;
-			float dz = this->center_z - ball.center_z;
-			float distanceSquared = dx * dx + dy * dy + dz * dz;
+        // 두 구의 반지름의 합 계산(반지름값은 0.5로 고정)
+        float radiusSum = 0.5 + 0.5;
 
-			float radiusSum = 0.5 + 0.5;
-
-			return distanceSquared <= (radiusSum * radiusSum);
-		}
-
-
-		return false;
-	}
+        // 거리 제곱이 반지름 합의 제곱보다 작거나 같으면 충돌
+        return distanceSquared <= (radiusSum * radiusSum);
+    }
 	
 	void hitBy(CSphere& ball) 
 	{ 
