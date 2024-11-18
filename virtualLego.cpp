@@ -247,7 +247,52 @@ public:
 
 	void hitBy(CSphere& ball) 
 	{
-		// Insert your code here.
+        if (hasIntersected(ball))
+        {
+            float ball_vx = (float)ball.getVelocity_X();
+            float ball_vz = (float)ball.getVelocity_Z();
+
+            // 수평
+            if (this->m_x == 0.0f)
+            {
+                ball.setPower(ball_vx, -ball_vz);
+
+                // 공이 벽 안으로 들어가지 않도록
+                float wall_z_pos;
+                if (this->m_z > 0)
+                {
+                    // 위쪽 벽
+                    wall_z_pos = this->m_z - this->m_depth / 2.0f - ball.getRadius();
+                    ball.setCenter(ball.getCenter().x, ball.getCenter().y, wall_z_pos);
+                }
+                else
+                {
+                    // 아래쪽 벽
+                    wall_z_pos = this->m_z + this->m_depth / 2.0f + ball.getRadius();
+                    ball.setCenter(ball.getCenter().x, ball.getCenter().y, wall_z_pos);
+                }
+            }
+            else if (this->m_z == 0.0f)
+            {
+                // 수직
+                ball.setPower(-ball_vx, ball_vz);
+
+                // 공이 벽 안으로 들어가지 않도록
+                float wall_x_pos;
+                if (this->m_x > 0)
+                {
+                    // 오른쪽 벽
+                    wall_x_pos = this->m_x - this->m_width / 2.0f - ball.getRadius();
+                    ball.setCenter(wall_x_pos, ball.getCenter().y, ball.getCenter().z);
+                }
+                else
+                {
+                    // 왼쪽 벽
+                    wall_x_pos = this->m_x + this->m_width / 2.0f + ball.getRadius();
+                    ball.setCenter(wall_x_pos, ball.getCenter().y, ball.getCenter().z);
+                }
+            }
+        }
 	}    
 	
 	void setPosition(float x, float y, float z)
