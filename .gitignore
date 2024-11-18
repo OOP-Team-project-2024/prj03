@@ -1,0 +1,28 @@
+# Visual Studio 관련
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.vcxproj.user
+*.vcxproj.filters
+*.vs/
+*.sdf
+*.ipch
+*.log
+*.db
+*.tlog
+*.lastbuildstate
+*.obj
+*.ilk
+*.pdb
+*.idb
+*.bsc
+*.sbr
+
+# 빌드 결과물
+/Debug/
+/Release/
+
+# 기타
+*.opt
+*.plg
