@@ -125,14 +125,14 @@ public:
 
 			//correction of position of ball
 			// Please uncomment this part because this correction of ball position is necessary when a ball collides with a wall
-			/*if(tX >= (4.5 - M_RADIUS))
+			if(tX >= (4.5 - M_RADIUS))
 				tX = 4.5 - M_RADIUS;
 			else if(tX <=(-4.5 + M_RADIUS))
 				tX = -4.5 + M_RADIUS;
 			else if(tZ <= (-3 + M_RADIUS))
 				tZ = -3 + M_RADIUS;
 			else if(tZ >= (3 - M_RADIUS))
-				tZ = 3 - M_RADIUS;*/
+				tZ = 3 - M_RADIUS;
 			
 			this->setCenter(tX, cord.y, tZ);
 		}
@@ -241,8 +241,23 @@ public:
 	
 	bool hasIntersected(CSphere& ball) 
 	{
-		// Insert your code here.
-		return false;
+        float ballX = ball.getCenter().x;
+        float ballZ = ball.getCenter().z;
+        float ballRadius = ball.getRadius();
+
+        // 벽의 범위를 계산
+        float leftXBoundary = this->m_x - this->m_width / 2.0f;
+        float rightXBoundary = this->m_x + this->m_width / 2.0f;
+        float frontZBoundary = this->m_z - this->m_depth / 2.0f;
+        float backZBoundary = this->m_z + this->m_depth / 2.0f;
+
+        // 공의 범위와 벽의 범위가 겹치는지 확인
+        bool isIntersectingX = (ballX + ballRadius >= leftXBoundary && ballX - ballRadius <= rightXBoundary);
+        bool isIntersectingZ = (ballZ + ballRadius >= frontZBoundary && ballZ - ballRadius <= backZBoundary);
+
+        if (isIntersectingX && isIntersectingZ) {
+            return true; // 충돌 발생
+        }
 	}
 
 	void hitBy(CSphere& ball) 
@@ -257,40 +272,12 @@ public:
             {
                 ball.setPower(ball_vx, -ball_vz);
 
-                // 공이 벽 안으로 들어가지 않도록
-                float wall_z_pos;
-                if (this->m_z > 0)
-                {
-                    // 위쪽 벽
-                    wall_z_pos = this->m_z - this->m_depth / 2.0f - ball.getRadius();
-                    ball.setCenter(ball.getCenter().x, ball.getCenter().y, wall_z_pos);
-                }
-                else
-                {
-                    // 아래쪽 벽
-                    wall_z_pos = this->m_z + this->m_depth / 2.0f + ball.getRadius();
-                    ball.setCenter(ball.getCenter().x, ball.getCenter().y, wall_z_pos);
-                }
             }
             else if (this->m_z == 0.0f)
             {
                 // 수직
                 ball.setPower(-ball_vx, ball_vz);
 
-                // 공이 벽 안으로 들어가지 않도록
-                float wall_x_pos;
-                if (this->m_x > 0)
-                {
-                    // 오른쪽 벽
-                    wall_x_pos = this->m_x - this->m_width / 2.0f - ball.getRadius();
-                    ball.setCenter(wall_x_pos, ball.getCenter().y, ball.getCenter().z);
-                }
-                else
-                {
-                    // 왼쪽 벽
-                    wall_x_pos = this->m_x + this->m_width / 2.0f + ball.getRadius();
-                    ball.setCenter(wall_x_pos, ball.getCenter().y, ball.getCenter().z);
-                }
             }
         }
 	}    
