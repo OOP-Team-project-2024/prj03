@@ -1,8 +1,8 @@
-////////////////////////////////////////////////////////////////////////////////
+﻿////////////////////////////////////////////////////////////////////////////////
 //
 // File: virtualLego.cpp
 //
-// Original Author: ��â�� Chang-hyeon Park, 
+// Original Author: ¹ÚÃ¢Çö Chang-hyeon Park, 
 // Modified by Bong-Soo Sohn and Dong-Jun Kim
 // 
 // Originally programmed for Virtual LEGO. 
@@ -250,13 +250,13 @@ public:
 		float ballX = ball.getCenter().x;
 		float ballZ = ball.getCenter().z;
 
-		bool isWithinXBounds = (leftXBoundary < ballX && ballX < rightXBoundary);
-		bool isWithinZBounds = (frontZBoundary < ballZ && ballZ < backZBoundary);
+		bool isWithinXBounds = (leftXBoundary <= ballX && ballX <= rightXBoundary);
+		bool isWithinZBounds = (frontZBoundary <= ballZ && ballZ <= backZBoundary);
 
 		if (isWithinXBounds || isWithinZBounds) {
 			// Colliding vertically
-			if (abs(this->m_x - ballX) < (this->m_width + ball.getRadius()) / 2 &&
-				abs(this->m_z - ballZ) < (this->m_depth + ball.getRadius()) / 2) {
+			if (abs(this->m_x - ballX) <= this->m_width / 2 + ball.getRadius() &&
+				abs(this->m_z - ballZ) <= this->m_depth / 2 + ball.getRadius()) {
 				return true;
 			}
 		}
@@ -557,10 +557,10 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
 				D3DXVECTOR3	whitepos = g_sphere[3].getCenter();
 				double theta = acos(sqrt(pow(targetpos.x - whitepos.x, 2)) / sqrt(pow(targetpos.x - whitepos.x, 2) +
-					pow(targetpos.z - whitepos.z, 2)));		// �⺻ 1 ��и�
-				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }	//4 ��и�
-				if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; } //2 ��и�
-				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0){ theta = PI + theta; } // 3 ��и�
+					pow(targetpos.z - whitepos.z, 2)));		// ±âº» 1 »çºÐ¸é
+				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }	//4 »çºÐ¸é
+				if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; } //2 »çºÐ¸é
+				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0){ theta = PI + theta; } // 3 »çºÐ¸é
 				double distance = sqrt(pow(targetpos.x - whitepos.x, 2) + pow(targetpos.z - whitepos.z, 2));
 				g_sphere[3].setPower(distance * cos(theta), distance * sin(theta));
 
