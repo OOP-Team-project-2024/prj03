@@ -1,8 +1,8 @@
-////////////////////////////////////////////////////////////////////////////////
+Áô§////////////////////////////////////////////////////////////////////////////////
 //
 // File: virtualLego.cpp
 //
-// Original Author: π⁄√¢«ˆ Chang-hyeon Park, 
+// Original Author: Ï®î¬ö¬ÉÏßñ¬áÏ≤† Chang-hyeon Park, 
 // Modified by Bong-Soo Sohn and Dong-Jun Kim
 // 
 // Originally programmed for Virtual LEGO. 
@@ -241,23 +241,30 @@ public:
 	
 	bool hasIntersected(CSphere& ball) 
 	{
-        float ballX = ball.getCenter().x;
-        float ballZ = ball.getCenter().z;
-        float ballRadius = ball.getRadius();
+		float leftXBoundary = this->m_x - (this->m_width / 2);
+		float rightXBoundary = this->m_x + (this->m_width / 2);
 
-        // ∫Æ¿« π¸¿ß∏¶ ∞ËªÍ
-        float leftXBoundary = this->m_x - this->m_width / 2.0f;
-        float rightXBoundary = this->m_x + this->m_width / 2.0f;
-        float frontZBoundary = this->m_z - this->m_depth / 2.0f;
-        float backZBoundary = this->m_z + this->m_depth / 2.0f;
+		float frontZBoundary = this->m_z - (this->m_depth / 2);
+		float backZBoundary = this->m_z + (this->m_depth / 2);
 
-        // ∞¯¿« π¸¿ßøÕ ∫Æ¿« π¸¿ß∞° ∞„ƒ°¥¬¡ˆ »Æ¿Œ
-        bool isIntersectingX = (ballX + ballRadius >= leftXBoundary && ballX - ballRadius <= rightXBoundary);
-        bool isIntersectingZ = (ballZ + ballRadius >= frontZBoundary && ballZ - ballRadius <= backZBoundary);
+		float ballX = ball.getCenter().x;
+		float ballZ = ball.getCenter().z;
 
-        if (isIntersectingX && isIntersectingZ) {
-            return true; // √Êµπ πﬂª˝
-        }
+		bool isWithinXBounds = (leftXBoundary <= ballX && ballX <= rightXBoundary);
+		bool isWithinZBounds = (frontZBoundary <= ballZ && ballZ <= backZBoundary);
+
+		if (isWithinXBounds || isWithinZBounds) {
+			// Colliding vertically
+			if (abs(this->m_x - ballX) <= this->m_width / 2 + ball.getRadius() &&
+				abs(this->m_z - ballZ) <= this->m_depth / 2 + ball.getRadius()) {
+				return true;
+			}
+		}
+		else {
+			// Colliding with an edge
+		}
+
+		return false;
 	}
 
 	void hitBy(CSphere& ball) 
@@ -267,7 +274,7 @@ public:
             float ball_vx = (float)ball.getVelocity_X();
             float ball_vz = (float)ball.getVelocity_Z();
 
-            // ºˆ∆Ú
+            // ÏàòÌèâ
             if (this->m_x == 0.0f)
             {
                 ball.setPower(ball_vx, -ball_vz);
@@ -275,7 +282,7 @@ public:
             }
             else if (this->m_z == 0.0f)
             {
-                // ºˆ¡˜
+                // ÏàòÏßÅ
                 ball.setPower(-ball_vx, ball_vz);
 
             }
@@ -567,10 +574,10 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
 				D3DXVECTOR3	whitepos = g_sphere[3].getCenter();
 				double theta = acos(sqrt(pow(targetpos.x - whitepos.x, 2)) / sqrt(pow(targetpos.x - whitepos.x, 2) +
-					pow(targetpos.z - whitepos.z, 2)));		// ±‚∫ª 1 ªÁ∫–∏È
-				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }	//4 ªÁ∫–∏È
-				if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; } //2 ªÁ∫–∏È
-				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0){ theta = PI + theta; } // 3 ªÁ∫–∏È
+					pow(targetpos.z - whitepos.z, 2)));		// ÏßπÏ∞ΩÏ®òÏ®© 1 Ï®©Ï±åÏ®ò¬êÏ®çÏ±ï
+				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }	//4 Ï®©Ï±åÏ®ò¬êÏ®çÏ±ï
+				if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; } //2 Ï®©Ï±åÏ®ò¬êÏ®çÏ±ï
+				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0){ theta = PI + theta; } // 3 Ï®©Ï±åÏ®ò¬êÏ®çÏ±ï
 				double distance = sqrt(pow(targetpos.x - whitepos.x, 2) + pow(targetpos.z - whitepos.z, 2));
 				g_sphere[3].setPower(distance * cos(theta), distance * sin(theta));
 
