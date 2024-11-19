@@ -2,7 +2,8 @@
 //
 // File: virtualLego.cpp
 //
-// Original Author: ��â�� Chang-hyeon Park, 
+
+// Original Author: Chang-hyeon Park, 
 // Modified by Bong-Soo Sohn and Dong-Jun Kim
 // 
 // Originally programmed for Virtual LEGO. 
@@ -154,14 +155,14 @@ public:
 
 			//correction of position of ball
 			// Please uncomment this part because this correction of ball position is necessary when a ball collides with a wall
-			/*if(tX >= (4.5 - M_RADIUS))
+			if(tX >= (4.5 - M_RADIUS))
 				tX = 4.5 - M_RADIUS;
 			else if(tX <=(-4.5 + M_RADIUS))
 				tX = -4.5 + M_RADIUS;
 			else if(tZ <= (-3 + M_RADIUS))
 				tZ = -3 + M_RADIUS;
 			else if(tZ >= (3 - M_RADIUS))
-				tZ = 3 - M_RADIUS;*/
+				tZ = 3 - M_RADIUS;
 			
 			this->setCenter(tX, cord.y, tZ);
 		}
@@ -270,13 +271,52 @@ public:
 	
 	bool hasIntersected(CSphere& ball) 
 	{
-		// Insert your code here.
+		float leftXBoundary = this->m_x - (this->m_width / 2);
+		float rightXBoundary = this->m_x + (this->m_width / 2);
+
+		float frontZBoundary = this->m_z - (this->m_depth / 2);
+		float backZBoundary = this->m_z + (this->m_depth / 2);
+
+		float ballX = ball.getCenter().x;
+		float ballZ = ball.getCenter().z;
+
+		bool isWithinXBounds = (leftXBoundary <= ballX && ballX <= rightXBoundary);
+		bool isWithinZBounds = (frontZBoundary <= ballZ && ballZ <= backZBoundary);
+
+		if (isWithinXBounds || isWithinZBounds) {
+			// Colliding vertically
+			if (abs(this->m_x - ballX) <= this->m_width / 2 + ball.getRadius() &&
+				abs(this->m_z - ballZ) <= this->m_depth / 2 + ball.getRadius()) {
+				return true;
+			}
+		}
+		else {
+			// Colliding with an edge
+		}
+
 		return false;
 	}
 
 	void hitBy(CSphere& ball) 
 	{
-		// Insert your code here.
+        if (hasIntersected(ball))
+        {
+            float ball_vx = (float)ball.getVelocity_X();
+            float ball_vz = (float)ball.getVelocity_Z();
+
+            // 수평
+            if (this->m_x == 0.0f)
+            {
+                ball.setPower(ball_vx, -ball_vz);
+
+            }
+            else if (this->m_z == 0.0f)
+            {
+                // 수직
+                ball.setPower(-ball_vx, ball_vz);
+
+            }
+        }
 	}    
 	
 	void setPosition(float x, float y, float z)
@@ -564,10 +604,12 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
 				D3DXVECTOR3	whitepos = g_sphere[3].getCenter();
 				double theta = acos(sqrt(pow(targetpos.x - whitepos.x, 2)) / sqrt(pow(targetpos.x - whitepos.x, 2) +
-					pow(targetpos.z - whitepos.z, 2)));		// �⺻ 1 ��и�
-				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }	//4 ��и�
-				if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; } //2 ��и�
-				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0){ theta = PI + theta; } // 3 ��и�
+
+				pow(targetpos.z - whitepos.z, 2)));		
+				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }
+				if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; } 
+				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0){ theta = PI + theta; }
+
 				double distance = sqrt(pow(targetpos.x - whitepos.x, 2) + pow(targetpos.z - whitepos.z, 2));
 				g_sphere[3].setPower(distance * cos(theta), distance * sin(theta));
 
