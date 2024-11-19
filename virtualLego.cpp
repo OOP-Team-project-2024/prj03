@@ -113,36 +113,59 @@ public:
 	
 	void hitBy(CSphere& ball) 
 	{ 
-		float dx = ball.center_x - this->center_x;
-        float dz= ball.center_z - this->center_z;
-        float distance = sqrt(dx * dx + dz * dz);
+        if (this->hasIntersected(ball))
+        {
+            // Get positions and velocities of the two balls
+            D3DXVECTOR3 pos1 = this->getCenter();
+            D3DXVECTOR3 pos2 = ball.getCenter();
 
-        if (distance >= (this->m_radius + ball.m_radius)){
-            return;
+            float vx1 = this->getVelocity_X();
+            float vz1 = this->getVelocity_Z();
+            float vx2 = ball.getVelocity_X();
+            float vz2 = ball.getVelocity_Z();
+
+            // Calculate normal and tangent vectors
+            float dx = pos1.x - pos2.x;
+            float dz = pos1.z - pos2.z;
+            float distance = sqrt(dx * dx + dz * dz);
+
+            // Normalize the normal vector
+            float nx = dx / distance;
+            float nz = dz / distance;
+
+            // Tangent vector is perpendicular to the normal vector
+            float tx = -nz;
+            float tz = nx;
+
+            // Project velocities onto the normal and tangent vectors
+            float v1n = nx * vx1 + nz * vz1;
+            float v1t = tx * vx1 + tz * vz1;
+            float v2n = nx * vx2 + nz * vz2;
+            float v2t = tx * vx2 + tz * vz2;
+
+            // Swap normal velocities (elastic collision)
+            float temp = v1n;
+            v1n = v2n;
+            v2n = temp;
+
+            // Convert scalar normal and tangential velocities back to vectors
+            vx1 = v1n * nx + v1t * tx;
+            vz1 = v1n * nz + v1t * tz;
+            vx2 = v2n * nx + v2t * tx;
+            vz2 = v2n * nz + v2t * tz;
+
+            // Set new velocities for the balls
+            this->setPower(vx1, vz1);
+            ball.setPower(vx2, vz2);
+
+            // Separate the balls to prevent sticking
+            float overlap = M_RADIUS * 2 - distance;
+            float correctionX = overlap / 2 * nx;
+            float correctionZ = overlap / 2 * nz;
+
+            this->setCenter(pos1.x + correctionX, pos1.y, pos1.z + correctionZ);
+            ball.setCenter(pos2.x - correctionX, pos2.y, pos2.z - correctionZ);
         }
-
-        float nx = dx / distance;
-        float nz = dz / distance;
-
-        float relVx = this->m_velocity_x - ball.m_velocity_x;
-        float relVz = this->m_velocity_z - ball.m_velocity_z;
-
-        float relV = relVx * nx + relVz * nz;
-
-        if(relV > 0){
-            return;
-        }
-
-        float elasticity = 0.9f;
-
-        float collisionV = -(1 + elasticity) * relV;
-        collisionV /= (1 / this->m_radius + 1/ball.m_radius);
-
-        this->m_velocity_x += collisionV * nx / this->m_radius;
-        this->m_velocity_z += collisionV * nz / this->m_radius;
-
-        ball.m_velocity_x -= collisionV * nx / ball.m_radius;
-        ball.m_velocity_z -= collisionV * nz / ball.m_radius;
 	}
 
 	void ballUpdate(float timeDiff) 
