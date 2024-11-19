@@ -2,7 +2,8 @@
 //
 // File: virtualLego.cpp
 //
-// Original Author: π⁄√¢«ˆ Chang-hyeon Park, 
+
+// Original Author: Chang-hyeon Park, 
 // Modified by Bong-Soo Sohn and Dong-Jun Kim
 // 
 // Originally programmed for Virtual LEGO. 
@@ -100,22 +101,48 @@ public:
     }
 	
     bool CSphere::hasIntersected(CSphere& ball) {
-        // µŒ ±∏¿« ¡ﬂΩ… ∞£ ∞≈∏Æ ∞ËªÍ
         float dx = this->center_x - ball.center_x;
         float dy = this->center_y - ball.center_y;
         float dz = this->center_z - ball.center_z;
         float distanceSquared = dx * dx + dy * dy + dz * dz;
 
-        // µŒ ±∏¿« π›¡ˆ∏ß¿« «’ ∞ËªÍ
         float radiusSum = M_RADIUS*2;
 
-        // ∞≈∏Æ ¡¶∞ˆ¿Ã π›¡ˆ∏ß «’¿« ¡¶∞ˆ∫∏¥Ÿ ¿€∞≈≥™ ∞∞¿∏∏È √Êµπ
         return distanceSquared <= (radiusSum * radiusSum);
     }
 	
 	void hitBy(CSphere& ball) 
 	{ 
-		// Insert your code here.
+		float dx = ball.center_x - this->center_x;
+        float dz= ball.center_z - this->center_z;
+        float distance = sqrt(dx * dx + dz * dz);
+
+        if (distance >= (this->m_radius + ball.m_radius)){
+            return;
+        }
+
+        float nx = dx / distance;
+        float nz = dz / distance;
+
+        float relVx = this->m_velocity_x - ball.m_velocity_x;
+        float relVz = this->m_velocity_z - ball.m_velocity_z;
+
+        float relV = relVx * nx + relVz * nz;
+
+        if(relV > 0){
+            return;
+        }
+
+        float elasticity = 0.9f;
+
+        float collisionV = -(1 + elasticity) * relV;
+        collisionV /= (1 / this->m_radius + 1/ball.m_radius);
+
+        this->m_velocity_x += collisionV * nx / this->m_radius;
+        this->m_velocity_z += collisionV * nz / this->m_radius;
+
+        ball.m_velocity_x -= collisionV * nx / ball.m_radius;
+        ball.m_velocity_z -= collisionV * nz / ball.m_radius;
 	}
 
 	void ballUpdate(float timeDiff) 
@@ -132,14 +159,14 @@ public:
 
 			//correction of position of ball
 			// Please uncomment this part because this correction of ball position is necessary when a ball collides with a wall
-			/*if(tX >= (4.5 - M_RADIUS))
+			if(tX >= (4.5 - M_RADIUS))
 				tX = 4.5 - M_RADIUS;
 			else if(tX <=(-4.5 + M_RADIUS))
 				tX = -4.5 + M_RADIUS;
 			else if(tZ <= (-3 + M_RADIUS))
 				tZ = -3 + M_RADIUS;
 			else if(tZ >= (3 - M_RADIUS))
-				tZ = 3 - M_RADIUS;*/
+				tZ = 3 - M_RADIUS;
 			
 			this->setCenter(tX, cord.y, tZ);
 		}
@@ -246,37 +273,55 @@ public:
 		m_pBoundMesh->DrawSubset(0);
     }
 	
-    bool CWall::hasIntersected(CSphere& ball) {
-        // ∫Æ¿« ¡ﬂΩ… ¡¬«•
-        float wallMinX = m_x - m_width / 2.0f;
-        float wallMaxX = m_x + m_width / 2.0f;
-        float wallMinZ = m_z - m_depth / 2.0f;
-        float wallMaxZ = m_z + m_depth / 2.0f;
 
-        // ±∏¿« ¡ﬂΩ… ¡¬«•
-        float sphereX = ball.center_x;
-        float sphereZ = ball.center_z;
+	bool hasIntersected(CSphere& ball) 
+	{
+		float leftXBoundary = this->m_x - (this->m_width / 2);
+		float rightXBoundary = this->m_x + (this->m_width / 2);
 
-        // ∞¢ √‡ø° ¥Î«ÿ ∞°¿Â ∞°±ÓøÓ ¡° ∞ËªÍ
-        float closestX = std::max(wallMinX, std::min(sphereX, wallMaxX));
-        float closestZ = std::max(wallMinZ, std::min(sphereZ, wallMaxZ));
+		float frontZBoundary = this->m_z - (this->m_depth / 2);
+		float backZBoundary = this->m_z + (this->m_depth / 2);
 
-        // ±∏¿« ¡ﬂΩ…∞˙ ∫Æø°º≠ ∞°¿Â ∞°±ÓøÓ ¡° ªÁ¿Ã¿« ∞≈∏Æ ∞ËªÍ
-        float distanceSquared = (sphereX - closestX) * (sphereX - closestX)
-            + (sphereZ - closestZ) * (sphereZ - closestZ);
+		float ballX = ball.getCenter().x;
+		float ballZ = ball.getCenter().z;
 
-        // √Êµπ ø©∫Œ π›»Ø
-        return distanceSquared <= (M_RADIUS * M_RADIUS);
-    }
+		bool isWithinXBounds = (leftXBoundary <= ballX && ballX <= rightXBoundary);
+		bool isWithinZBounds = (frontZBoundary <= ballZ && ballZ <= backZBoundary);
 
+		if (isWithinXBounds || isWithinZBounds) {
+			// Colliding vertically
+			if (abs(this->m_x - ballX) <= this->m_width / 2 + ball.getRadius() &&
+				abs(this->m_z - ballZ) <= this->m_depth / 2 + ball.getRadius()) {
+				return true;
+			}
+		}
+		else {
+			// Colliding with an edge
+		}
 
-
-
-
+		return false;
+	}
 
 	void hitBy(CSphere& ball) 
 	{
-		// Insert your code here.
+        if (hasIntersected(ball))
+        {
+            float ball_vx = (float)ball.getVelocity_X();
+            float ball_vz = (float)ball.getVelocity_Z();
+
+            // ÏàòÌèâ
+            if (this->m_x == 0.0f)
+            {
+                ball.setPower(ball_vx, -ball_vz);
+
+            }
+            else if (this->m_z == 0.0f)
+            {
+                // ÏàòÏßÅ
+                ball.setPower(-ball_vx, ball_vz);
+
+            }
+        }
 	}    
 	
 	void setPosition(float x, float y, float z)
@@ -564,10 +609,12 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
 				D3DXVECTOR3	whitepos = g_sphere[3].getCenter();
 				double theta = acos(sqrt(pow(targetpos.x - whitepos.x, 2)) / sqrt(pow(targetpos.x - whitepos.x, 2) +
-					pow(targetpos.z - whitepos.z, 2)));		// ±‚∫ª 1 ªÁ∫–∏È
-				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }	//4 ªÁ∫–∏È
-				if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; } //2 ªÁ∫–∏È
-				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0){ theta = PI + theta; } // 3 ªÁ∫–∏È
+
+				pow(targetpos.z - whitepos.z, 2)));		
+				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }
+				if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; } 
+				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0){ theta = PI + theta; }
+
 				double distance = sqrt(pow(targetpos.x - whitepos.x, 2) + pow(targetpos.z - whitepos.z, 2));
 				g_sphere[3].setPower(distance * cos(theta), distance * sin(theta));
 
