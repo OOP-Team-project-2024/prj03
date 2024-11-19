@@ -100,12 +100,16 @@ public:
 		m_pSphereMesh->DrawSubset(0);
     }
 	
-    bool hasIntersected(CSphere& ball) 
-	{
-		// Insert your code here.
+    bool CSphere::hasIntersected(CSphere& ball) {
+        float dx = this->center_x - ball.center_x;
+        float dy = this->center_y - ball.center_y;
+        float dz = this->center_z - ball.center_z;
+        float distanceSquared = dx * dx + dy * dy + dz * dz;
 
-		return false;
-	}
+        float radiusSum = M_RADIUS*2;
+
+        return distanceSquared <= (radiusSum * radiusSum);
+    }
 	
 	void hitBy(CSphere& ball) 
 	{ 
@@ -269,6 +273,7 @@ public:
 		m_pBoundMesh->DrawSubset(0);
     }
 	
+
 	bool hasIntersected(CSphere& ball) 
 	{
 		float leftXBoundary = this->m_x - (this->m_width / 2);
