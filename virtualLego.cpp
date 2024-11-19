@@ -241,7 +241,29 @@ public:
 	
 	bool hasIntersected(CSphere& ball) 
 	{
-		// Insert your code here.
+		float leftXBoundary = this->m_x - (this->m_width / 2);
+		float rightXBoundary = this->m_x + (this->m_width / 2);
+
+		float frontZBoundary = this->m_z - (this->m_depth / 2);
+		float backZBoundary = this->m_z + (this->m_depth / 2);
+
+		float ballX = ball.getCenter().x;
+		float ballZ = ball.getCenter().z;
+
+		bool isWithinXBounds = (leftXBoundary < ballX && ballX < rightXBoundary);
+		bool isWithinZBounds = (frontZBoundary < ballZ && ballZ < backZBoundary);
+
+		if (isWithinXBounds || isWithinZBounds) {
+			// Colliding vertically
+			if (abs(this->m_x - ballX) < (this->m_width + ball.getRadius()) / 2 &&
+				abs(this->m_z - ballZ) < (this->m_depth + ball.getRadius()) / 2) {
+				return true;
+			}
+		}
+		else {
+			// Colliding with an edge
+		}
+
 		return false;
 	}
 
