@@ -250,29 +250,25 @@ public:
         // 벽의 중심 좌표
         float wallMinX = m_x - m_width / 2.0f;
         float wallMaxX = m_x + m_width / 2.0f;
-        float wallMinY = -m_height / 2.0f;
-        float wallMaxY = m_height / 2.0f;
         float wallMinZ = m_z - m_depth / 2.0f;
         float wallMaxZ = m_z + m_depth / 2.0f;
 
         // 구의 중심 좌표
         float sphereX = ball.center_x;
-        float sphereY = ball.center_y;
         float sphereZ = ball.center_z;
 
         // 각 축에 대해 가장 가까운 점 계산
         float closestX = std::max(wallMinX, std::min(sphereX, wallMaxX));
-        float closestY = std::max(wallMinY, std::min(sphereY, wallMaxY));
         float closestZ = std::max(wallMinZ, std::min(sphereZ, wallMaxZ));
 
         // 구의 중심과 벽에서 가장 가까운 점 사이의 거리 계산
         float distanceSquared = (sphereX - closestX) * (sphereX - closestX)
-            + (sphereY - closestY) * (sphereY - closestY)
             + (sphereZ - closestZ) * (sphereZ - closestZ);
 
         // 충돌 여부 반환
         return distanceSquared <= (M_RADIUS * M_RADIUS);
     }
+
 
 
 
