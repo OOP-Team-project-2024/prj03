@@ -17,6 +17,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cassert>
+#include <algorithm>
 
 
 
@@ -59,13 +60,12 @@ private :
     float                   m_radius;
 	float					m_velocity_x;
 	float					m_velocity_z;
-    D3DXVECTOR3 m_prevPos; // 이전 프레임에서의 위치
-    float m_rotationAngle; // 누적 회전 각도
-
+    D3DXMATRIX m_rotation;
 public:
     CSphere(void)
     {
         D3DXMatrixIdentity(&m_mLocal);
+        D3DXMatrixIdentity(&m_rotation);
         ZeroMemory(&m_mtrl, sizeof(m_mtrl));
         m_radius = 0;
 		m_velocity_x = 0;
@@ -78,8 +78,6 @@ public:
 public:
     bool create(IDirect3DDevice9* pDevice, LPCSTR textureFileName = NULL, D3DXCOLOR color = d3d::WHITE)
     {
-        m_prevPos = getCenter();
-        m_rotationAngle = 0.0f;
         if (NULL == pDevice)
             return false;
 
@@ -154,6 +152,13 @@ public:
         }
         return true;
     }
+
+    void rotate(float angleDegrees, const D3DXVECTOR3& axis)
+    {
+        D3DXMATRIX rot;
+        D3DXMatrixRotationAxis(&rot, &axis, D3DXToRadian(angleDegrees));
+        m_rotation = rot * m_rotation;
+    }
 	
     void destroy(void)
     {
@@ -171,15 +176,25 @@ public:
     {
         if (NULL == pDevice)
             return;
-        pDevice->SetTransform(D3DTS_WORLD, &mWorld);
-        pDevice->MultiplyTransform(D3DTS_WORLD, &m_mLocal);
-        pDevice->SetMaterial(&m_mtrl);
+        // 현재 위치를 기반으로 한 이동 행렬 생성
+        D3DXMATRIX mTranslation;
+        D3DXMatrixTranslation(&mTranslation, center_x, center_y, center_z);
 
+        // 회전과 이동을 결합
+        D3DXMATRIX mWorldLocal = m_rotation * mTranslation;
+
+        // 최종 월드 행렬 계산 (로컬 변환 후 월드 변환)
+        D3DXMATRIX finalWorld = mWorldLocal * mWorld;
+        pDevice->SetTransform(D3DTS_WORLD, &finalWorld);
+
+        // 머티리얼과 텍스처 설정
+        pDevice->SetMaterial(&m_mtrl);
         pDevice->SetTexture(0, m_pTexture);
 
+        // 구 그리기
         m_pSphereMesh->DrawSubset(0);
 
-        // After drawing, reset the texture
+        // 텍스처 리셋
         pDevice->SetTexture(0, NULL);
     }
 	
@@ -258,6 +273,7 @@ public:
 		double vx = abs(this->getVelocity_X());
 		double vz = abs(this->getVelocity_Z());
 
+
 		if(vx > 0.01 || vz > 0.01)
 		{
 			float tX = cord.x + TIME_SCALE*timeDiff*m_velocity_x;
@@ -276,10 +292,6 @@ public:
 			
 			this->setCenter(tX, cord.y, tZ);
 
-            // 이동 벡터 계산
-            D3DXVECTOR3 moveDir = getCenter() - m_prevPos;
-
-
 		}
 		else { this->setPower(0,0);}
 		//this->setPower(this->getVelocity_X() * DECREASE_RATE, this->getVelocity_Z() * DECREASE_RATE);
@@ -287,6 +299,34 @@ public:
 		if(rate < 0 )
 			rate = 0;
 		this->setPower(getVelocity_X() * rate, getVelocity_Z() * rate);
+        float distance = sqrt(m_velocity_x * m_velocity_x + m_velocity_z * m_velocity_z) * TIME_SCALE * timeDiff;
+
+        // 이동 거리와 구의 반지름을 기반으로 회전 각도 계산
+        float angle = distance / M_RADIUS;
+
+        // 속도 벡터에 수직인 회전 축 계산 (x-z 평면에서)
+        D3DXVECTOR3 velocity(m_velocity_x, 0.0f, m_velocity_z);
+        D3DXVECTOR3 axis;
+
+        if (D3DXVec3Length(&velocity) == 0.0f)
+        {
+            // 속도가 없으면 회전 없음
+            axis = D3DXVECTOR3(0.0f, 1.0f, 0.0f); // 기본 축
+        }
+        else
+        {
+            // 속도 벡터에 수직인 축 계산
+            axis = D3DXVECTOR3(m_velocity_z, 0.0f, -m_velocity_x);
+            D3DXVec3Normalize(&axis, &axis);
+        }
+
+        // 회전 행렬 생성
+        D3DXMATRIX rot;
+        D3DXMatrixRotationAxis(&rot, &axis, angle);
+
+        // 누적 회전 행렬 업데이트
+        m_rotation = rot * m_rotation;
+
 	}
 
 	double getVelocity_X() { return this->m_velocity_x;	}
@@ -300,10 +340,9 @@ public:
 
 	void setCenter(float x, float y, float z)
 	{
-		D3DXMATRIX m;
-		center_x=x;	center_y=y;	center_z=z;
-		D3DXMatrixTranslation(&m, x, y, z);
-		setLocalTransform(m);
+        center_x = x;
+        center_y = y;
+        center_z = z;
 	}
 	
 	float getRadius(void)  const { return (float)(M_RADIUS);  }
@@ -587,13 +626,49 @@ bool Setup()
 	if (false == g_legowall[3].create(Device, -1, -1, 0.12f, 0.3f, 6.24f, d3d::DARKRED)) return false;
 	g_legowall[3].setPosition(-4.56f, 0.12f, 0.0f);
 
+    std::vector<int> availableIndices;
+    for (int pos = 1; pos < 16; pos++) {
+        if (pos != 5) { // 8번 공은 spherePos[5]에 고정
+            availableIndices.push_back(pos);
+        }
+    }
+
+    // 인덱스 섞기
+    std::random_shuffle(availableIndices.begin(), availableIndices.end());
+
 	// create four balls and set the position
 	for (i=0;i<16;i++) {
         char textureFileName[256];
         sprintf(textureFileName, "image\\Ball%d.jpg", i);
         if (false == g_sphere[i].create(Device, textureFileName)) return false;
-        g_sphere[i].setCenter(spherePos[i][0], (float)M_RADIUS, spherePos[i][1]);
+
+        float x, z;
+        if (i == 0) {
+            // 0번 공(큐볼)은 spherePos[0]에 고정
+            x = spherePos[0][0];
+            z = spherePos[0][1];
+        }
+        else if (i == 8) {
+            // 8번 공은 spherePos[5]에 고정
+            x = spherePos[5][0];
+            z = spherePos[5][1];
+        }
+        else {
+            // 나머지 공들은 랜덤하게 섞인 인덱스에서 위치 선택
+            if (availableIndices.empty()) {
+                MessageBox(NULL, "Not enough positions to assign all balls.", "Error", MB_OK);
+                return false;
+            }
+            int posIndex = availableIndices.back();
+            availableIndices.pop_back();
+            x = spherePos[posIndex][0];
+            z = spherePos[posIndex][1];
+        }
+
+        // 공의 위치 설정
+        g_sphere[i].setCenter(x, (float)M_RADIUS, z);
         g_sphere[i].setPower(0, 0);
+        g_sphere[i].rotate(90.0f, D3DXVECTOR3(0.0f, 0.0f, 1.0f));
 	}
 	
 	// create blue ball for set direction
