@@ -18,6 +18,8 @@
 #include <cstdio>
 #include <cassert>
 
+
+
 IDirect3DDevice9* Device = NULL;
 
 // window size
@@ -26,9 +28,14 @@ const int Height = 768;
 
 // There are four balls
 // initialize the position (coordinate) of each ball (ball0 ~ ball3)
-const float spherePos[4][2] = { {-2.7f,0} , {+2.4f,0} , {3.3f,0} , {-2.7f,-0.9f}}; 
-// initialize the color of each ball (ball0 ~ ball3)
-const D3DXCOLOR sphereColor[4] = {d3d::RED, d3d::RED, d3d::YELLOW, d3d::WHITE};
+const float spherePos[16][2] = {
+    {-2.5f, 0.0f},  // 큐볼 위치 
+    {1.0f, 0.0f},   // 삼각형 첫 번째 줄 (꼭대기)
+    {1.36f, -0.21f}, {1.36f, 0.21f},  // 삼각형 두 번째 줄
+    {1.72f, -0.42f}, {1.72f, 0.0f}, {1.72f, 0.42f},  // 삼각형 세 번째 줄
+    {2.08f, -0.63f}, {2.08f, -0.21f}, {2.08f, 0.21f}, {2.08f, 0.63f},  // 삼각형 네 번째 줄
+    {2.44f, -0.84f}, {2.44f, -0.42f}, {2.44f, 0.0f}, {2.44f, 0.42f}, {2.44f, 0.84f}  // 삼각형 다섯 번째 줄
+};
 
 // -----------------------------------------------------------------------------
 // Transform matrices
@@ -52,6 +59,8 @@ private :
     float                   m_radius;
 	float					m_velocity_x;
 	float					m_velocity_z;
+    D3DXVECTOR3 m_prevPos; // 이전 프레임에서의 위치
+    float m_rotationAngle; // 누적 회전 각도
 
 public:
     CSphere(void)
@@ -62,23 +71,87 @@ public:
 		m_velocity_x = 0;
 		m_velocity_z = 0;
         m_pSphereMesh = NULL;
+        m_pTexture = NULL;
     }
     ~CSphere(void) {}
 
 public:
-    bool create(IDirect3DDevice9* pDevice, D3DXCOLOR color = d3d::WHITE)
+    bool create(IDirect3DDevice9* pDevice, LPCSTR textureFileName = NULL, D3DXCOLOR color = d3d::WHITE)
     {
+        m_prevPos = getCenter();
+        m_rotationAngle = 0.0f;
         if (NULL == pDevice)
             return false;
-		
-        m_mtrl.Ambient  = color;
-        m_mtrl.Diffuse  = color;
-        m_mtrl.Specular = color;
+
+	
+        if (textureFileName != NULL)
+        {
+            // 텍스처가 존재할 경우 머티리얼 색상을 흰색으로 설정
+            m_mtrl.Ambient = d3d::WHITE;
+            m_mtrl.Diffuse = d3d::WHITE;
+            m_mtrl.Specular = d3d::WHITE;
+        }
+        else
+        {
+            // 텍스처가 없을 경우 기존 색상 사용
+            m_mtrl.Ambient = color;
+            m_mtrl.Diffuse = color;
+            m_mtrl.Specular = color;
+        }
+
         m_mtrl.Emissive = d3d::BLACK;
         m_mtrl.Power    = 5.0f;
 		
         if (FAILED(D3DXCreateSphere(pDevice, getRadius(), 50, 50, &m_pSphereMesh, NULL)))
             return false;
+        // 텍스처 좌표를 포함하도록 메쉬 클론
+        HRESULT hr = m_pSphereMesh->CloneMeshFVF(
+            D3DXMESH_MANAGED,
+            D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_TEX1,
+            pDevice,
+            &m_pSphereMesh);
+        if (FAILED(hr))
+            return false;
+
+        // 정점 버퍼를 잠그고 텍스처 좌표 계산
+        struct Vertex
+        {
+            D3DXVECTOR3 position;
+            D3DXVECTOR3 normal;
+            FLOAT       tu, tv;
+        };
+
+        Vertex* vertices = nullptr;
+        hr = m_pSphereMesh->LockVertexBuffer(0, (void**)&vertices);
+        if (FAILED(hr))
+            return false;
+
+        DWORD numVertices = m_pSphereMesh->GetNumVertices();
+        for (DWORD i = 0; i < numVertices; ++i)
+        {
+            D3DXVECTOR3& pos = vertices[i].position;
+            FLOAT theta = atan2f(pos.z, pos.x);
+            FLOAT phi = acosf(pos.y / getRadius());
+
+            // theta와 phi를 [0, 1] 범위로 정규화
+            FLOAT u = (theta + D3DX_PI) / (2 * D3DX_PI);
+            FLOAT v = phi / D3DX_PI;
+
+            vertices[i].tu = u;
+            vertices[i].tv = v;
+        }
+
+        m_pSphereMesh->UnlockVertexBuffer();
+
+        if (textureFileName != NULL)
+        {
+            HRESULT result = D3DXCreateTextureFromFile(pDevice, textureFileName, &m_pTexture);
+            if (FAILED(result))
+            {
+                MessageBox(NULL, "Failed to load texture", "Error", MB_OK);
+                return false;
+            }
+        }
         return true;
     }
 	
@@ -87,6 +160,10 @@ public:
         if (m_pSphereMesh != NULL) {
             m_pSphereMesh->Release();
             m_pSphereMesh = NULL;
+        }
+        if (m_pTexture != NULL) {
+            m_pTexture->Release();
+            m_pTexture = NULL;
         }
     }
 
@@ -97,7 +174,13 @@ public:
         pDevice->SetTransform(D3DTS_WORLD, &mWorld);
         pDevice->MultiplyTransform(D3DTS_WORLD, &m_mLocal);
         pDevice->SetMaterial(&m_mtrl);
-		m_pSphereMesh->DrawSubset(0);
+
+        pDevice->SetTexture(0, m_pTexture);
+
+        m_pSphereMesh->DrawSubset(0);
+
+        // After drawing, reset the texture
+        pDevice->SetTexture(0, NULL);
     }
 	
     bool CSphere::hasIntersected(CSphere& ball) {
@@ -192,6 +275,11 @@ public:
 				tZ = 3 - M_RADIUS;
 			
 			this->setCenter(tX, cord.y, tZ);
+
+            // 이동 벡터 계산
+            D3DXVECTOR3 moveDir = getCenter() - m_prevPos;
+
+
 		}
 		else { this->setPower(0,0);}
 		//this->setPower(this->getVelocity_X() * DECREASE_RATE, this->getVelocity_Z() * DECREASE_RATE);
@@ -231,7 +319,7 @@ private:
     D3DXMATRIX              m_mLocal;
     D3DMATERIAL9            m_mtrl;
     ID3DXMesh*              m_pSphereMesh;
-	
+    LPDIRECT3DTEXTURE9 m_pTexture;
 };
 
 
@@ -461,7 +549,7 @@ private:
 // -----------------------------------------------------------------------------
 CWall	g_legoPlane;
 CWall	g_legowall[4];
-CSphere	g_sphere[4];
+CSphere	g_sphere[16];
 CSphere	g_target_blueball;
 CLight	g_light;
 
@@ -500,14 +588,16 @@ bool Setup()
 	g_legowall[3].setPosition(-4.56f, 0.12f, 0.0f);
 
 	// create four balls and set the position
-	for (i=0;i<4;i++) {
-		if (false == g_sphere[i].create(Device, sphereColor[i])) return false;
-		g_sphere[i].setCenter(spherePos[i][0], (float)M_RADIUS , spherePos[i][1]);
-		g_sphere[i].setPower(0,0);
+	for (i=0;i<16;i++) {
+        char textureFileName[256];
+        sprintf(textureFileName, "image\\Ball%d.jpg", i);
+        if (false == g_sphere[i].create(Device, textureFileName)) return false;
+        g_sphere[i].setCenter(spherePos[i][0], (float)M_RADIUS, spherePos[i][1]);
+        g_sphere[i].setPower(0, 0);
 	}
 	
 	// create blue ball for set direction
-    if (false == g_target_blueball.create(Device, d3d::BLUE)) return false;
+    if (false == g_target_blueball.create(Device, NULL, d3d::BLUE)) return false;
 	g_target_blueball.setCenter(.0f, (float)M_RADIUS , .0f);
 	
 	// light setting 
@@ -541,6 +631,11 @@ bool Setup()
     Device->SetRenderState(D3DRS_LIGHTING, TRUE);
     Device->SetRenderState(D3DRS_SPECULARENABLE, TRUE);
     Device->SetRenderState(D3DRS_SHADEMODE, D3DSHADE_GOURAUD);
+
+    Device->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    Device->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+    Device->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_CURRENT);
+    Device->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
 	
 	g_light.setLight(Device, g_mWorld);
 	return true;
@@ -571,14 +666,15 @@ bool Display(float timeDelta)
 		Device->BeginScene();
 		
 		// update the position of each ball. during update, check whether each ball hit by walls.
-		for( i = 0; i < 4; i++) {
-			g_sphere[i].ballUpdate(timeDelta);
-			for(j = 0; j < 4; j++){ g_legowall[i].hitBy(g_sphere[j]); }
-		}
-
+        for (i = 0; i < 16; i++) {
+            g_sphere[i].ballUpdate(timeDelta);
+            for (j = 0; j < 4; j++) { // There are only 4 walls
+                g_legowall[j].hitBy(g_sphere[i]);
+            }
+        }
 		// check whether any two balls hit together and update the direction of balls
-		for(i = 0 ;i < 4; i++){
-			for(j = 0 ; j < 4; j++) {
+		for(i = 0 ;i < 16; i++){
+			for(j = 0 ; j < 16; j++) {
 				if(i >= j) {continue;}
 				g_sphere[i].hitBy(g_sphere[j]);
 			}
@@ -588,8 +684,11 @@ bool Display(float timeDelta)
 		g_legoPlane.draw(Device, g_mWorld);
 		for (i=0;i<4;i++) 	{
 			g_legowall[i].draw(Device, g_mWorld);
-			g_sphere[i].draw(Device, g_mWorld);
+			
 		}
+        for (i = 0;i < 16;i++) {
+            g_sphere[i].draw(Device, g_mWorld);
+        }
 		g_target_blueball.draw(Device, g_mWorld);
         g_light.draw(Device);
 		
@@ -630,7 +729,7 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             case VK_SPACE:
 				
 				D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
-				D3DXVECTOR3	whitepos = g_sphere[3].getCenter();
+				D3DXVECTOR3	whitepos = g_sphere[0].getCenter();
 				double theta = acos(sqrt(pow(targetpos.x - whitepos.x, 2)) / sqrt(pow(targetpos.x - whitepos.x, 2) +
 
 				pow(targetpos.z - whitepos.z, 2)));		
@@ -639,7 +738,7 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0){ theta = PI + theta; }
 
 				double distance = sqrt(pow(targetpos.x - whitepos.x, 2) + pow(targetpos.z - whitepos.z, 2));
-				g_sphere[3].setPower(distance * cos(theta), distance * sin(theta));
+				g_sphere[0].setPower(distance * cos(theta), distance * sin(theta));
 
 				break;
 
