@@ -265,3 +265,28 @@ d3d::BoundingSphere::BoundingSphere()
 {
 	_radius = 0.0f;
 }
+
+ID3DXFont* g_pFont = NULL;		//전역 폰트 객체
+
+//폰트 초기화
+bool d3d::InitFont(IDirect3DDevice9* device) {
+	return SUCCEEDED(D3DXCreateFont(device, 24, 0, FW_BOLD, 1, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Arial", &g_pFont));
+	//폰트 높이, 너비, 굵기, mip levels, 이탤릭, 문자 집합, 출력 정밀도, 품질, 피치 및 패밀리, 글꼴 이름, 글꼴 저장
+}
+
+//텍스트 출력
+void d3d::RenderText(IDirect3DDevice9* device, const char* text) {
+	if (g_pFont) {
+		RECT rect = { 10, 10, 300, 50 };	//출력할 텍스트 영역
+		g_pFont->DrawText(NULL, text, -1, &rect, DT_LEFT | DT_TOP, D3DCOLOR_XRGB(255, 255, 255));
+	}
+}
+
+
+// 폰트 정리
+void d3d::CleanupFont() {
+	if (g_pFont) {
+		g_pFont->Release();		//메모리 해제
+		g_pFont = NULL;			//포인터 초기화
+	}
+}

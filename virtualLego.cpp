@@ -317,6 +317,12 @@ public:
         setLocalTransform(m);
     }
 
+    void setColor(D3DXCOLOR color) {
+        m_mtrl.Ambient = color;
+        m_mtrl.Diffuse = color;
+        m_mtrl.Specular = color;
+    }
+
     float getRadius(void)  const { return (float)(M_RADIUS); }
     const D3DXMATRIX& getLocalTransform(void) const { return m_mLocal; }
     void setLocalTransform(const D3DXMATRIX& mLocal) { m_mLocal = mLocal; }
@@ -736,6 +742,13 @@ bool Setup()
     Device->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
 
     g_light.setLight(Device, g_mWorld);
+
+    //폰트 초기화
+    if (!d3d::InitFont(Device)) {
+        ::MessageBox(0, "InitFont() - Failed", 0, 0);
+        return false;
+    }
+
     return true;
 }
 
@@ -747,6 +760,7 @@ void Cleanup(void)
     }
     destroyAllLegoBlock();
     g_light.destroy();
+    d3d::CleanupFont();     //폰트 정리
 }
 
 
@@ -801,6 +815,9 @@ bool Display(float timeDelta) {
         }
         g_target_blueball.draw(Device, g_mWorld);
         g_light.draw(Device);
+
+        char* playerText = "Player 1's Turn";
+        d3d::RenderText(Device, playerText);
 
         Device->EndScene();
         Device->Present(0, 0, 0, 0);
