@@ -172,10 +172,6 @@ public:
         return true;
     }
 
-    void activate() {
-        isActive = true; // 공 활성화
-    }
-
 
     void destroy(void)
     {
@@ -780,62 +776,59 @@ bool Display(float timeDelta) {
 
             for (const auto& pocket : pockets) {
                 if (pocket.isBallInPocket(g_sphere[i])) {
+                    g_sphere[i].deactivate(); // 공 비활성화
+                    g_sphere[i].setCenter(-999.0f, -999.0f, -999.0f); // 물리적으로 접근 불가능한 위치
+                    g_sphere[i].setPower(0, 0); // 속도 제거
 
-                    if (i == 0) { // 큐볼(흰 공)이 구멍에 빠졌다면
-                        g_sphere[0].setCenter(-2.5f, M_RADIUS, 0.0f); // 초기 위치로 복원
-                        g_sphere[0].setPower(0, 0);                   // 속도 초기화
-                        g_sphere[0].activate();                      // 반드시 활성화
-                    }
-                    else {
-                        // 다른 공은 비활성화 및 화면에서 제거
-                        g_sphere[i].deactivate(); // 공 비활성화
-                        g_sphere[i].setCenter(-999.0f, -999.0f, -999.0f); // 화면 밖으로 이동
-                        g_sphere[i].setPower(0, 0);                       // 속도 초기화
+                    if (i == 0) { // 큐볼이 구멍에 빠졌다면
+                        g_sphere[0].setCenter(-2.5f, M_RADIUS, 0.0f); // 큐볼 초기화
+                        g_sphere[0].setPower(0, 0);
                     }
                     break; // 더 이상 처리할 필요 없음
                 }
+
+
+                g_sphere[i].ballUpdate(timeDelta);
+
+                for (int j = 0; j < 4; j++) {
+                    g_legowall[j].hitBy(g_sphere[i]);
+                }
             }
 
-            g_sphere[i].ballUpdate(timeDelta);
-
-            for (int j = 0; j < 4; j++) {
-                g_legowall[j].hitBy(g_sphere[i]);
+            // Ball-to-ball collisions
+            for (int i = 0; i < 16; i++) {
+                for (int j = i + 1; j < 16; j++) {
+                    g_sphere[i].hitBy(g_sphere[j]);
+                }
             }
-        }
 
-        // Ball-to-ball collisions
-        for (int i = 0; i < 16; i++) {
-            for (int j = i + 1; j < 16; j++) {
-                g_sphere[i].hitBy(g_sphere[j]);
+            // Draw plane, walls, pockets, and active balls
+            g_legoPlane.draw(Device, g_mWorld);
+            for (int i = 0; i < 4; i++) {
+                g_legowall[i].draw(Device, g_mWorld);
             }
-        }
-
-        // Draw plane, walls, pockets, and active balls
-        g_legoPlane.draw(Device, g_mWorld);
-        for (int i = 0; i < 4; i++) {
-            g_legowall[i].draw(Device, g_mWorld);
-        }
-        for (const auto& pocket : pockets) {
-            pocket.draw(Device, g_mWorld);
-        }
-        for (int i = 0; i < 16; i++) {
-            if (g_sphere[i].isActiveBall()) {
-                g_sphere[i].draw(Device, g_mWorld);
+            for (const auto& pocket : pockets) {
+                pocket.draw(Device, g_mWorld);
             }
-        }
-        g_target_blueball.draw(Device, g_mWorld);
-        g_light.draw(Device);
+            for (int i = 0; i < 16; i++) {
+                if (g_sphere[i].isActiveBall()) {
+                    g_sphere[i].draw(Device, g_mWorld);
+                }
+            }
+            g_target_blueball.draw(Device, g_mWorld);
+            g_light.draw(Device);
 
-        Device->EndScene();
-        Device->Present(0, 0, 0, 0);
-        Device->SetTexture(0, NULL);
+            Device->EndScene();
+            Device->Present(0, 0, 0, 0);
+            Device->SetTexture(0, NULL);
+        }
+
+        return true;
     }
-
-    return true;
 }
 
 
-LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+    LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     static bool wire = false;
     static bool isReset = true;
@@ -862,6 +855,7 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     (wire ? D3DFILL_WIREFRAME : D3DFILL_SOLID));
             }
             break;
+
         case VK_SPACE:
 
             D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
@@ -949,15 +943,14 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             old_y = new_y;
             break;
         }
-    }
 
     return ::DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
-int WINAPI WinMain(HINSTANCE hinstance,
-    HINSTANCE prevInstance,
-    PSTR cmdLine,
-    int showCmd)
+    int WINAPI WinMain(HINSTANCE hinstance,
+        HINSTANCE prevInstance,
+        PSTR cmdLine,
+        int showCmd)
 {
     srand(static_cast<unsigned int>(time(NULL)));
 
