@@ -18,13 +18,17 @@
 #include <cassert>
 #include <algorithm>
 
-
-
 IDirect3DDevice9* Device = NULL;
 
 // window size
 const int Width = 1024;
 const int Height = 768;
+
+// 테이블 경계값 정의
+const float TABLE_MIN_X = -4.5f;
+const float TABLE_MAX_X = 4.5f;
+const float TABLE_MIN_Z = -3.0f;
+const float TABLE_MAX_Z = 3.0f;
 
 // There are four balls
 // initialize the position (coordinate) of each ball (ball0 ~ ball3)
@@ -283,6 +287,8 @@ public:
 
 	void ballUpdate(float timeDiff) 
 	{
+        if (!this->isActive) return;
+
 		const float TIME_SCALE = 3.3;
 		D3DXVECTOR3 cord = this->getCenter();
 		double vx = abs(this->getVelocity_X());
@@ -353,11 +359,6 @@ public:
 		this->m_velocity_x = vx;
 		this->m_velocity_z = vz;
 	}
-    void setPower(double vx, double vz)
-    {
-        this->m_velocity_x = vx;
-        this->m_velocity_z = vz;
-    }
 
     void setCenter(float x, float y, float z)
     {
@@ -1056,6 +1057,8 @@ bool Display(float timeDelta) {
             for (const auto& pocket : pockets) {
                 if (pocket.isBallInPocket(g_sphere[i])) {
                     g_sphere[i].deactivate(); // 공 비활성화
+                    g_sphere[i].setCenter(-999.0f, -999.0f, -999.0f); // 물리적으로 접근 불가능한 위치
+                    g_sphere[i].setPower(0, 0); // 속도 제거
 
                     // i 값에 따라서 white_in, black_in, solid_in, stripe_in에 값을 할당한다.
                     if (i == 0) {
@@ -1073,10 +1076,6 @@ bool Display(float timeDelta) {
                         stripe_num--;
                     }
 
-                    if (i == 0) { // 큐볼이 구멍에 빠졌다면
-                        g_sphere[0].setCenter(-2.5f, M_RADIUS, 0.0f); // 큐볼 초기화
-                        g_sphere[0].setPower(0, 0);
-                    }
                     break; // 더 이상 처리할 필요 없음
                 }
             }
@@ -1285,16 +1284,31 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             isReset = true;
 
             if (LOWORD(wParam) & MK_RBUTTON) {
-                dx = (old_x - new_x);// * 0.01f;
-                dy = (old_y - new_y);// * 0.01f;
+                dx = (old_x - new_x) * (-0.007f);
+                dy = (old_y - new_y) * 0.007f;
 
+                // 기존 위치 가져오기
                 D3DXVECTOR3 coord3d = g_target_blueball.getCenter();
-                g_target_blueball.setCenter(coord3d.x + dx * (-0.007f), coord3d.y, coord3d.z + dy * 0.007f);
+                float new_x_pos = coord3d.x + dx;
+                float new_z_pos = coord3d.z + dy;
+
+                // 테이블 크기에 맞춘 경계 제한
+                const float TABLE_MIN_X = -4.5f + M_RADIUS; // 반지름만큼 여유를 둠
+                const float TABLE_MAX_X = 4.5f - M_RADIUS;
+                const float TABLE_MIN_Z = -3.0f + M_RADIUS;
+                const float TABLE_MAX_Z = 3.0f - M_RADIUS;
+
+                // 위치 제한
+                new_x_pos = max(TABLE_MIN_X, min(TABLE_MAX_X, new_x_pos));
+                new_z_pos = max(TABLE_MIN_Z, min(TABLE_MAX_Z, new_z_pos));
+
+                // 제한된 위치로 파란 공 이동
+                g_target_blueball.setCenter(new_x_pos, coord3d.y, new_z_pos);
             }
             old_x = new_x;
             old_y = new_y;
 
-            move = WORLD_MOVE;
+            break;
         }
         break;
     }
