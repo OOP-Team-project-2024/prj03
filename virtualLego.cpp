@@ -732,12 +732,12 @@ bool foul() {
                 return true;
             }
         }
-        break_shot = false;
     }
     if (white_in) {
         return true;
     }
     return false;
+    break_shot = false;
 }
 
 // select_group은 사용자의 키보드와 상호작용하여 그룹을 선택함.
