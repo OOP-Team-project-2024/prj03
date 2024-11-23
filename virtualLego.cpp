@@ -2,7 +2,6 @@
 //
 // File: virtualLego.cpp
 //
-
 // Original Author: Chang-hyeon Park, 
 // Modified by Bong-Soo Sohn and Dong-Jun Kim
 // 
@@ -38,8 +37,8 @@ const float spherePos[16][2] = {
     {2.44f, -0.84f}, {2.44f, -0.42f}, {2.44f, 0.0f}, {2.44f, 0.42f}, {2.44f, 0.84f}  // 삼각형 다섯 번째 줄
 };
 
-
-
+// 벽에 공이 맞은 횟수 카운트
+int cusion_count;
 
 // -----------------------------------------------------------------------------
 // Transform matrices
@@ -81,6 +80,9 @@ public:
     ~CSphere(void) {}
 
     void deactivate() { isActive = false; }
+
+    void activate() { isActive = true; }
+
     bool isActiveBall() const { return isActive; }
     //활성 상태 관리 추가
 private:
@@ -485,6 +487,9 @@ public:
                 ball.setPower(-ball_vx, ball_vz);
 
             }
+
+            // 벽에 공이 맞은 횟수 카운트
+            cusion_count++;
         }
     }
 
@@ -695,10 +700,132 @@ CLight	g_light;
 
 double g_camera_pos[3] = { 0.0, 5.0, -8.0 };
 
+// 게임 진행을 위한 변수들
+bool shot_last; // true: 직전 frame에서 shot이 진행 중이었음, false: 직전 frame에서 샷이 진행 중이지 않았음.
+bool shot_now; // true: 현재 frame에서 shot이 진행 중, false: 현재 frame에서 샷이 진행 중이지 않음.
+bool turn; // true: player 1, false: player 2
+bool break_shot; // 최초의 shot인지 여부
+bool free_shot; // 다음 샷 전에 free shot을 수행할지 여부
+bool open; // true: 플레이어별로 공이 배정되지 않음, false: 공이 배정됨.
+bool solid_in, stripe_in, white_in, black_in; // 하나의 샷 동안 pocket에 들어간 공의 종류
+int solid_num, stripe_num;
+bool group; // 현재 쳐야 하는 공의 그룹, ture: solid, false: stripe
 // -----------------------------------------------------------------------------
 // Functions
 // -----------------------------------------------------------------------------
 
+// 파울 여부 판단
+// 일반적인 foul과 최초 샷의 경우에만 해당하는 foul 구현
+// 게임의 승패를 판단함. 1: player 1 승리, 2: player 2 승리
+int result() {
+    if (open) {
+        if (turn) {
+            return 2;
+        }
+        else {
+            return 1;
+        }
+    }
+    else {
+        if (turn) {
+            if (group) {
+                if (solid_num == 0 && !stripe_in && !white_in) {
+                    return 1;
+                }
+                else {
+                    return 2;
+                }
+            }
+            else {
+                if (stripe_num == 0 && !solid_in && !white_in) {
+                    return 1;
+                }
+                else {
+                    return 2;
+                }
+            }
+        }
+        else {
+            if (group) {
+                if (solid_num == 0 && !stripe_in && !white_in) {
+                    return 2;
+                }
+                else {
+                    return 1;
+                }
+            }
+            else {
+                if (stripe_num == 0 && !solid_in && !white_in) {
+                    return 2;
+                }
+                else {
+                    return 1;
+                }
+            }
+        }
+    }
+}
+
+// shot의 foul 여부를 판단함. break_shot와 cusion count를 사용함.
+bool foul() {
+    if (break_shot) {
+        if (!solid_in && !stripe_in) {
+            if (cusion_count < 4) {
+                return true;
+            }
+        }
+    }
+    if (white_in) {
+        return true;
+    }
+    break_shot = false;
+    return false;
+}
+
+// select_group은 사용자의 키보드와 상호작용하여 그룹을 선택함.
+bool select_group() {
+    return true; // 일단 solid 할당
+} // 플레이어가 직접 사용할 그룹을 지정한다.
+
+// 다음 샷에서의 turn에 관한 값을 할당.
+void next_turn() { 
+    if (foul()) {
+        turn = !turn;
+        group = !group;
+        free_shot = true; // free_shot 수행 이후엔 다시 false가 되어야 함.
+    }
+    else {
+        if (stripe_in || solid_in) {
+            if (open) {
+                // 플레이어가 쳐야만 하는 공의 종류가 없기에 공이 들어가기만 하면, 턴 전환이 일어나지 않음
+                // break_shot 직후에는 open 상태여야 하기 때문에 group의 할당을 하지 않음.
+                if (!break_shot) {
+                    if (solid_in && stripe_in) {
+                        group = select_group();
+                        open = false;
+                    }
+                    else {
+                        group = solid_in ? true : false;
+                        open = false;
+                    }
+                }
+            }
+            else {
+                // 플레이어가 쳐야하는 공과 들어간 공의 종류가 다르면 턴 전환이 발생함
+                if ((solid_in && !stripe_in) && group ||
+                    (!solid_in && stripe_in) && group) {
+                    turn = !turn;
+                    group = !group;
+                }
+            }
+        }
+        // foul이 없는 상태에서 어떤 공도 들어가지 않으면 턴이 전환됨
+        else {
+            turn = !turn;
+            group = !group;
+        }
+    }
+}; 
 
 void destroyAllLegoBlock(void)
 {
@@ -712,6 +839,17 @@ bool Setup()
     D3DXMatrixIdentity(&g_mWorld);
     D3DXMatrixIdentity(&g_mView);
     D3DXMatrixIdentity(&g_mProj);
+
+    // 게임 진행을 위한 값 초기화
+    shot_last = false;
+    shot_now = false;
+    turn = true;
+    break_shot = true;
+    free_shot = false;
+    cusion_count = 0;
+    open = true;
+    solid_in = stripe_in = white_in = black_in = false;
+    solid_num = stripe_num = 7;
 
     // create plane and set the position
     if (false == g_legoPlane.create(Device, -1, -1, 9, 0.03f, 6, d3d::GREEN)) return false;
@@ -834,6 +972,38 @@ bool Display(float timeDelta) {
         Device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0x00afafaf, 1.0f, 0);
         Device->BeginScene();
 
+        // 각 샷이 종료될 때마다 게임의 종료, 파울 여부, 턴의 전환, 공의 그룹 할당을 판단한다.
+        // 현재 프레임의 shot 진행 여부 판단.
+
+        // free ball을 다시금 구멍에 넣게되면 shot이 시작되지 않았다 판단하기에
+        // free ball이 구멍에 넣어지지 않도록 위치를 설정할 떄까지 계속해서 free ball을 활성화함.
+        if (white_in) {
+            free_shot = true;
+            white_in = false;
+        }
+
+        shot_now = false;
+        for (int i = 0; i < 16; i++) {
+            if (g_sphere[i].isActiveBall() && pow(g_sphere[i].getVelocity_X(), 2) + pow(g_sphere[i].getVelocity_Z(), 2) != 0) {
+                shot_now = true;
+                break;
+            }
+        }
+        if (shot_now != shot_last && !shot_now) { // 공이 멈춘 직후, shot과 shot 사이의 첫 프레임에 도달하였을 때 판단을 내림
+            if (black_in) { // 게임의 종료 여부를 판단
+                // 승패 여부를 판단한여 text를 보여줘야함
+            }
+            else { // 종료되지 않았다면
+                next_turn();
+            }
+            
+            // 위의 판단 이후, 다음 shot 직후의 판단을 위한 초기화
+            cusion_count = 0;
+            solid_in = stripe_in = white_in = black_in = false;
+        }
+        // 다음 frame의 shot_last 갱신
+        shot_last = shot_now;
+
         // Ball updates and pocket collision
         for (int i = 0; i < 16; i++) {
             if (!g_sphere[i].isActiveBall()) continue; // 비활성화된 공 건너뛰기
@@ -841,6 +1011,23 @@ bool Display(float timeDelta) {
             for (const auto& pocket : pockets) {
                 if (pocket.isBallInPocket(g_sphere[i])) {
                     g_sphere[i].deactivate(); // 공 비활성화
+
+                    // i 값에 따라서 white_in, black_in, solid_in, stripe_in에 값을 할당한다.
+                    if (i == 0) {
+                        white_in = true;
+                    }
+                    else if (0 < i && i < 8) {
+                        solid_in = true;
+                        solid_num--;
+                    }
+                    else if (i == 8) {
+                        black_in = true;
+                    }
+                    else {
+                        stripe_in = true;
+                        stripe_num--;
+                    }
+
                     if (i == 0) { // 큐볼이 구멍에 빠졌다면
                         g_sphere[0].setCenter(-2.5f, M_RADIUS, 0.0f); // 큐볼 초기화
                         g_sphere[0].setPower(0, 0);
@@ -915,20 +1102,27 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     (wire ? D3DFILL_WIREFRAME : D3DFILL_SOLID));
             }
             break;
-        case VK_SPACE:
+        case VK_SPACE: // 스페이스바를 누르는 경우
+            if (!shot_last) { // 직전의 shot이 종료되어야 다음 shot을 할 수 있다.
+                if (free_shot) { // free_shot의 경우 blue_ball의 위치로 흰 공을 이동시키고 activate를 한다.
+                    g_sphere[0].setCenter(g_target_blueball.getCenter().x, g_target_blueball.getCenter().y, g_target_blueball.getCenter().z);
+                    g_sphere[0].activate();
+                    free_shot = false;
+                }
+                else {
+                    D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
+                    D3DXVECTOR3	whitepos = g_sphere[0].getCenter();
+                    double theta = acos(sqrt(pow(targetpos.x - whitepos.x, 2)) / sqrt(pow(targetpos.x - whitepos.x, 2) +
 
-            D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
-            D3DXVECTOR3	whitepos = g_sphere[0].getCenter();
-            double theta = acos(sqrt(pow(targetpos.x - whitepos.x, 2)) / sqrt(pow(targetpos.x - whitepos.x, 2) +
+                        pow(targetpos.z - whitepos.z, 2)));
+                    if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }
+                    if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; }
+                    if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0) { theta = PI + theta; }
 
-                pow(targetpos.z - whitepos.z, 2)));
-            if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }
-            if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; }
-            if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0) { theta = PI + theta; }
-
-            double distance = sqrt(pow(targetpos.x - whitepos.x, 2) + pow(targetpos.z - whitepos.z, 2));
-            g_sphere[0].setPower(distance * cos(theta), distance * sin(theta));
-
+                    double distance = sqrt(pow(targetpos.x - whitepos.x, 2) + pow(targetpos.z - whitepos.z, 2));
+                    g_sphere[0].setPower(distance * cos(theta), distance * sin(theta));
+                }
+            }
             break;
 
         }
