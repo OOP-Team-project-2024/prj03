@@ -736,8 +736,8 @@ bool foul() {
     if (white_in) {
         return true;
     }
-    return false;
     break_shot = false;
+    return false;
 }
 
 // select_group은 사용자의 키보드와 상호작용하여 그룹을 선택함.
@@ -897,6 +897,14 @@ bool Display(float timeDelta) {
 
         // 각 샷이 종료될 때마다 게임의 종료, 파울 여부, 턴의 전환, 공의 그룹 할당을 판단한다.
         // 현재 프레임의 shot 진행 여부 판단.
+
+        // free ball을 다시금 구멍에 넣게되면 shot이 시작되지 않았다 판단하기에
+        // free ball이 구멍에 넣어지지 않도록 위치를 설정할 떄까지 계속해서 free ball을 활성화함.
+        if (white_in) {
+            free_shot = true;
+            white_in = false;
+        }
+
         shot_now = false;
         for (int i = 0; i < 16; i++) {
             if (g_sphere[i].isActiveBall() && pow(g_sphere[i].getVelocity_X(), 2) + pow(g_sphere[i].getVelocity_Z(), 2) != 0) {
