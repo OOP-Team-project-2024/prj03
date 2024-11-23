@@ -606,12 +606,12 @@ public:
 // 전역 변수에 pockets 추가
 const int NUM_POCKETS = 6;
 CPocket pockets[NUM_POCKETS] = {
-    CPocket(D3DXVECTOR3(-4.5f, 0.0f, 3.0f), 0.3f),  // 상단 왼쪽
-    CPocket(D3DXVECTOR3(0.0f, 0.0f, 3.0f), 0.3f),   // 상단 중앙
-    CPocket(D3DXVECTOR3(4.5f, 0.0f, 3.0f), 0.3f),   // 상단 오른쪽
-    CPocket(D3DXVECTOR3(-4.5f, 0.0f, -3.0f), 0.3f), // 하단 왼쪽
-    CPocket(D3DXVECTOR3(0.0f, 0.0f, -3.0f), 0.3f),  // 하단 중앙
-    CPocket(D3DXVECTOR3(4.5f, 0.0f, -3.0f), 0.3f)   // 하단 오른쪽
+    CPocket(D3DXVECTOR3(-4.4f, 0.1f, 2.9f), 0.3f),  // 상단 왼쪽
+    CPocket(D3DXVECTOR3(0.0f, 0.1f, 3.0f), 0.3f),   // 상단 중앙
+    CPocket(D3DXVECTOR3(4.4f, 0.1f, 2.9f), 0.3f),   // 상단 오른쪽
+    CPocket(D3DXVECTOR3(-4.4f, 0.1f, -2.9f), 0.3f), // 하단 왼쪽
+    CPocket(D3DXVECTOR3(0.0f, 0.1f, -3.0f), 0.3f),  // 하단 중앙
+    CPocket(D3DXVECTOR3(4.4f, 0.1f, -2.9f), 0.3f)   // 하단 오른쪽
 };
 
 
@@ -893,14 +893,21 @@ bool Setup()
     if (false == g_legoPlane.create(Device, -1, -1, 9, 0.03f, 6, d3d::GREEN)) return false;
     g_legoPlane.setPosition(0.0f, -0.0006f / 5, 0.0f);
 	// create walls and set the position. note that there are four walls
-	if (false == g_legowall[0].create(Device, -1, -1, 9, 0.3f, 0.12f, d3d::DARKRED)) return false;
-	g_legowall[0].setPosition(0.0f, 0.12f, 3.06f);
-	if (false == g_legowall[1].create(Device, -1, -1, 9, 0.3f, 0.12f, d3d::DARKRED)) return false;
-	g_legowall[1].setPosition(0.0f, 0.12f, -3.06f);
-	if (false == g_legowall[2].create(Device, -1, -1, 0.12f, 0.3f, 6.24f, d3d::DARKRED)) return false;
-	g_legowall[2].setPosition(4.56f, 0.12f, 0.0f);
-	if (false == g_legowall[3].create(Device, -1, -1, 0.12f, 0.3f, 6.24f, d3d::DARKRED)) return false;
-	g_legowall[3].setPosition(-4.56f, 0.12f, 0.0f);
+    // 상단 벽
+    if (false == g_legowall[0].create(Device, -1, -1, 9.5f, 0.3f, 0.5f, d3d::DARKRED)) return false;
+    g_legowall[0].setPosition(0.0f, 0.12f, 3.25f);
+
+    // 하단 벽
+    if (false == g_legowall[1].create(Device, -1, -1, 9.5f, 0.3f, 0.5f, d3d::DARKRED)) return false;
+    g_legowall[1].setPosition(0.0f, 0.12f, -3.25f);
+
+    // 오른쪽 벽
+    if (false == g_legowall[2].create(Device, -1, -1, 0.25f, 0.3f, 6.0f, d3d::DARKRED)) return false;
+    g_legowall[2].setPosition(4.625f, 0.12f, 0.0f);
+
+    // 왼쪽 벽
+    if (false == g_legowall[3].create(Device, -1, -1, 0.25f, 0.3f, 6.0f, d3d::DARKRED)) return false;
+    g_legowall[3].setPosition(-4.625f, 0.12f, 0.0f);
 
     std::vector<int> availableIndices;
     for (int pos = 1; pos < 16; pos++) {
