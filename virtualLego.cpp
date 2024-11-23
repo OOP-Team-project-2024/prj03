@@ -64,7 +64,7 @@ private:
     float					m_velocity_x;
     float					m_velocity_z;
     D3DXVECTOR3 m_prevPos; // 이전 프레임에서의 위치
-    float m_rotationAngle; // 누적 회전 각도
+    D3DXMATRIX m_rotation; // 누적 회전 각도
 
 public:
     CSphere(void) : isActive(true)

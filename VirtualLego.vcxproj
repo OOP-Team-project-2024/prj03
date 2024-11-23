@@ -140,6 +140,24 @@
   <ItemGroup>
     <ClInclude Include="d3dUtility.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="image\Ball0.jpg" />
+    <Image Include="image\Ball1.jpg" />
+    <Image Include="image\Ball10.jpg" />
+    <Image Include="image\Ball11.jpg" />
+    <Image Include="image\Ball12.jpg" />
+    <Image Include="image\Ball13.jpg" />
+    <Image Include="image\Ball14.jpg" />
+    <Image Include="image\Ball15.jpg" />
+    <Image Include="image\Ball2.jpg" />
+    <Image Include="image\Ball3.jpg" />
+    <Image Include="image\Ball4.jpg" />
+    <Image Include="image\Ball5.jpg" />
+    <Image Include="image\Ball6.jpg" />
+    <Image Include="image\Ball7.jpg" />
+    <Image Include="image\Ball8.jpg" />
+    <Image Include="image\Ball9.jpg" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
