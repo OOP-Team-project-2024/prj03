@@ -126,6 +126,9 @@ namespace d3d
 		D3DXVECTOR3 _direction;
 	};
 
+	bool InitFont(IDirect3DDevice9* device);
+	void RenderText(IDirect3DDevice9* device, const char* text, RECT& rect);
+	void CleanupFont();
 	//
 	// Constants
 	//

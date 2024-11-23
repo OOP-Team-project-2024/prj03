@@ -319,6 +319,12 @@ public:
         setLocalTransform(m);
     }
 
+    void setColor(D3DXCOLOR color) {
+        m_mtrl.Ambient = color;
+        m_mtrl.Diffuse = color;
+        m_mtrl.Specular = color;
+    }
+
     float getRadius(void)  const { return (float)(M_RADIUS); }
     const D3DXMATRIX& getLocalTransform(void) const { return m_mLocal; }
     void setLocalTransform(const D3DXMATRIX& mLocal) { m_mLocal = mLocal; }
@@ -646,6 +652,24 @@ private:
     d3d::BoundingSphere m_bound;
 };
 
+// -----------------------------------------------------------------------------
+// CLight class definition
+// -----------------------------------------------------------------------------
+
+//class CLight {
+//public:
+//    CLight(void)
+//    {
+//        static DWORD i = 0;
+//        m_index = i++;
+//        D3DXMatrixIdentity(&m_mLocal);
+//        ::ZeroMemory(&m_lit, sizeof(m_lit));
+//        m_pMesh = NULL;
+//        m_bound._center = D3DXVECTOR3(0.0f, 0.0f, 0.0f);
+//        m_bound._radius = 0.0f;
+//    }
+//};
+
 
 // -----------------------------------------------------------------------------
 // Global variables
@@ -668,6 +692,16 @@ bool open; // true: 플레이어별로 공이 배정되지 않음, false: 공이
 bool solid_in, stripe_in, white_in, black_in; // 하나의 샷 동안 pocket에 들어간 공의 종류
 int solid_num, stripe_num;
 bool group; // 현재 쳐야 하는 공의 그룹, ture: solid, false: stripe
+int win; // 승자 저장 0: 무승부, 1: player 1 승, 2: player 2 승
+bool select_group; // 다음 샷을 시작하기 전 select를 해야함을 알려줌.
+
+// 텍스트 박스들
+RECT turn_rect = { 10, 10, 300, 50 };     // 첫 번째 박스 (위치 변경 없음)
+RECT group_rect = { 10, 50, 300, 90 };    // 두 번째 박스 (아래로 이동)
+RECT win_rect = { 10, 90, 300, 130 };     // 세 번째 박스 (아래로 이동)
+RECT select_rect = { 10, 130, 300, 170 }; // 네 번째 박스 (아래로 이동)
+RECT free_shot_rect = { 10, 170, 300, 210 }; // 네 번째 박스 (아래로 이동)
+
 // -----------------------------------------------------------------------------
 // Functions
 // -----------------------------------------------------------------------------
@@ -736,14 +770,8 @@ bool foul() {
     if (white_in) {
         return true;
     }
-    break_shot = false;
     return false;
 }
-
-// select_group은 사용자의 키보드와 상호작용하여 그룹을 선택함.
-bool select_group() {
-    return true; // 일단 solid 할당
-} // 플레이어가 직접 사용할 그룹을 지정한다.
 
 // 다음 샷에서의 turn에 관한 값을 할당.
 void next_turn() { 
@@ -759,7 +787,7 @@ void next_turn() {
                 // break_shot 직후에는 open 상태여야 하기 때문에 group의 할당을 하지 않음.
                 if (!break_shot) {
                     if (solid_in && stripe_in) {
-                        group = select_group();
+                        select_group = true;
                         open = false;
                     }
                     else {
@@ -783,6 +811,7 @@ void next_turn() {
             group = !group;
         }
     }
+    break_shot = false;
 }; 
 
 void destroyAllLegoBlock(void)
@@ -808,6 +837,8 @@ bool Setup()
     open = true;
     solid_in = stripe_in = white_in = black_in = false;
     solid_num = stripe_num = 7;
+    win = 0;
+    select_group = false;
 
     // create plane and set the position
     if (false == g_legoPlane.create(Device, -1, -1, 9, 0.03f, 6, d3d::GREEN)) return false;
@@ -874,6 +905,13 @@ bool Setup()
     Device->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
 
     g_light.setLight(Device, g_mWorld);
+
+    //폰트 초기화
+    if (!d3d::InitFont(Device)) {
+        ::MessageBox(0, "InitFont() - Failed", 0, 0);
+        return false;
+    }
+
     return true;
 }
 
@@ -885,6 +923,7 @@ void Cleanup(void)
     }
     destroyAllLegoBlock();
     g_light.destroy();
+    d3d::CleanupFont();     //폰트 정리
 }
 
 
@@ -914,7 +953,7 @@ bool Display(float timeDelta) {
         }
         if (shot_now != shot_last && !shot_now) { // 공이 멈춘 직후, shot과 shot 사이의 첫 프레임에 도달하였을 때 판단을 내림
             if (black_in) { // 게임의 종료 여부를 판단
-                // 승패 여부를 판단한여 text를 보여줘야함
+                win = result();
             }
             else { // 종료되지 않았다면
                 next_turn();
@@ -989,6 +1028,62 @@ bool Display(float timeDelta) {
         g_target_blueball.draw(Device, g_mWorld);
         g_light.draw(Device);
 
+        // 화면에 문자열 표현
+        // turn
+        char* turn_text;
+        if (turn) {
+            turn_text = "Turn : Player 1's turn";
+        }
+        else {
+            turn_text = "Turn : Player 2's turn";
+        }
+        d3d::RenderText(Device, turn_text, turn_rect);
+        // 할당된 공 그룹
+        char* group_text;
+        if (open) {
+            group_text = "group : any";
+        }
+        else {
+            if (group) {
+                group_text = "target group: solid ball";
+            }
+            else {
+                group_text = "target group: stripe ball";
+            }
+        }
+        d3d::RenderText(Device, group_text, group_rect);
+
+        // 경기 결과
+        char* win_text;
+        if (win == 0) {
+            win_text = "result : draw";
+        }
+        else if(win == 1){
+            win_text = "result : player 1 win";
+        }
+        else {
+            win_text = "result: player 2 win";
+        }
+        d3d::RenderText(Device, win_text, win_rect);
+
+        // 어떤 공을 칠지 선택해야 한다면 뜨는 창
+        char* select_text;
+        if (select_group) {
+            select_text = "select target group using keyboard ( solid : A, stripe: B )";
+            d3d::RenderText(Device, select_text, select_rect);
+        }
+
+        Device->EndScene();
+        Device->Present(0, 0, 0, 0);
+        Device->SetTexture(0, NULL);
+
+        // free shot 진행 중임을 알려주는 창
+        char* free_shot_text;
+        if (free_shot) {
+            free_shot_text = "free shot";
+            d3d::RenderText(Device, free_shot_text, free_shot_rect);
+        }
+
         Device->EndScene();
         Device->Present(0, 0, 0, 0);
         Device->SetTexture(0, NULL);
@@ -1025,25 +1120,39 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     (wire ? D3DFILL_WIREFRAME : D3DFILL_SOLID));
             }
             break;
+        case 'A':
+            if (select_group) {
+                group = true;
+                select_group = false;
+            }
+            break;
+        case 'B':
+            if (select_group) {
+                group = false;
+                select_group = false;
+            }
+            break;
         case VK_SPACE: // 스페이스바를 누르는 경우
-            if (!shot_last) { // 직전의 shot이 종료되어야 다음 shot을 할 수 있다.
-                if (free_shot) { // free_shot의 경우 blue_ball의 위치로 흰 공을 이동시키고 activate를 한다.
-                    g_sphere[0].setCenter(g_target_blueball.getCenter().x, g_target_blueball.getCenter().y, g_target_blueball.getCenter().z);
-                    g_sphere[0].activate();
-                    free_shot = false;
-                }
-                else {
-                    D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
-                    D3DXVECTOR3	whitepos = g_sphere[0].getCenter();
-                    double theta = acos(sqrt(pow(targetpos.x - whitepos.x, 2)) / sqrt(pow(targetpos.x - whitepos.x, 2) +
+            if (!select_group) {
+                if (!shot_last) { // 직전의 shot이 종료되어야 다음 shot을 할 수 있다.
+                    if (free_shot) { // free_shot의 경우 blue_ball의 위치로 흰 공을 이동시키고 activate를 한다.
+                        g_sphere[0].setCenter(g_target_blueball.getCenter().x, g_target_blueball.getCenter().y, g_target_blueball.getCenter().z);
+                        g_sphere[0].activate();
+                        free_shot = false;
+                    }
+                    else {
+                        D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
+                        D3DXVECTOR3	whitepos = g_sphere[0].getCenter();
+                        double theta = acos(sqrt(pow(targetpos.x - whitepos.x, 2)) / sqrt(pow(targetpos.x - whitepos.x, 2) +
 
-                        pow(targetpos.z - whitepos.z, 2)));
-                    if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }
-                    if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; }
-                    if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0) { theta = PI + theta; }
+                            pow(targetpos.z - whitepos.z, 2)));
+                        if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }
+                        if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; }
+                        if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0) { theta = PI + theta; }
 
-                    double distance = sqrt(pow(targetpos.x - whitepos.x, 2) + pow(targetpos.z - whitepos.z, 2));
-                    g_sphere[0].setPower(distance * cos(theta), distance * sin(theta));
+                        double distance = sqrt(pow(targetpos.x - whitepos.x, 2) + pow(targetpos.z - whitepos.z, 2));
+                        g_sphere[0].setPower(distance * cos(theta), distance * sin(theta));
+                    }
                 }
             }
             break;
