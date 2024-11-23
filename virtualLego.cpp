@@ -283,6 +283,7 @@ public:
 
 	void ballUpdate(float timeDiff) 
 	{
+        if (!this->isActive) return;
 		const float TIME_SCALE = 3.3;
 		D3DXVECTOR3 cord = this->getCenter();
 		double vx = abs(this->getVelocity_X());
@@ -1056,7 +1057,9 @@ bool Display(float timeDelta) {
             for (const auto& pocket : pockets) {
                 if (pocket.isBallInPocket(g_sphere[i])) {
                     g_sphere[i].deactivate(); // 공 비활성화
-
+                    g_sphere[i].setCenter(-999.0f, -999.0f, -999.0f); // 물리적으로 접근 불가능한 위치
+                    g_sphere[i].setPower(0, 0); // 속도 제거
+                  
                     // i 값에 따라서 white_in, black_in, solid_in, stripe_in에 값을 할당한다.
                     if (i == 0) {
                         white_in = true;
@@ -1073,10 +1076,6 @@ bool Display(float timeDelta) {
                         stripe_num--;
                     }
 
-                    if (i == 0) { // 큐볼이 구멍에 빠졌다면
-                        g_sphere[0].setCenter(-2.5f, M_RADIUS, 0.0f); // 큐볼 초기화
-                        g_sphere[0].setPower(0, 0);
-                    }
                     break; // 더 이상 처리할 필요 없음
                 }
             }
