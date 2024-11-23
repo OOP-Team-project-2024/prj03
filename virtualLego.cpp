@@ -36,8 +36,8 @@ const float spherePos[16][2] = {
     {2.44f, -0.84f}, {2.44f, -0.42f}, {2.44f, 0.0f}, {2.44f, 0.42f}, {2.44f, 0.84f}  // 삼각형 다섯 번째 줄
 };
 
-
-
+// 벽에 공이 맞은 횟수 카운트
+int cusion_count;
 
 // -----------------------------------------------------------------------------
 // Transform matrices
@@ -78,6 +78,9 @@ public:
     ~CSphere(void) {}
 
     void deactivate() { isActive = false; }
+
+    void activate() { isActive = true; }
+
     bool isActiveBall() const { return isActive; }
     //활성 상태 관리 추가
 private:
@@ -661,7 +664,6 @@ bool shot_now; // true: 현재 frame에서 shot이 진행 중, false: 현재 fra
 bool turn; // true: player 1, false: player 2
 bool break_shot; // 최초의 shot인지 여부
 bool free_shot; // 다음 샷 전에 free shot을 수행할지 여부
-int cusion_count; // 각 shot 별로 벽에 부딪힌 횟수
 bool open; // true: 플레이어별로 공이 배정되지 않음, false: 공이 배정됨.
 bool solid_in, stripe_in, white_in, black_in; // 하나의 샷 동안 pocket에 들어간 공의 종류
 int solid_num, stripe_num;
@@ -904,7 +906,7 @@ bool Display(float timeDelta) {
         }
         if (shot_now != shot_last && !shot_now) { // 공이 멈춘 직후, shot과 shot 사이의 첫 프레임에 도달하였을 때 판단을 내림
             if (black_in) { // 게임의 종료 여부를 판단
-                // 승패 여부를 판단한다.
+                // 승패 여부를 판단한여 text를 보여줘야함
             }
             else { // 종료되지 않았다면
                 next_turn();
@@ -1015,19 +1017,26 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     (wire ? D3DFILL_WIREFRAME : D3DFILL_SOLID));
             }
             break;
-        case VK_SPACE:
-            if (shot_last) {
-                D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
-                D3DXVECTOR3	whitepos = g_sphere[0].getCenter();
-                double theta = acos(sqrt(pow(targetpos.x - whitepos.x, 2)) / sqrt(pow(targetpos.x - whitepos.x, 2) +
+        case VK_SPACE: // 스페이스바를 누르는 경우
+            if (!shot_last) { // 직전의 shot이 종료되어야 다음 shot을 할 수 있다.
+                if (free_shot) { // free_shot의 경우 blue_ball의 위치로 흰 공을 이동시키고 activate를 한다.
+                    g_sphere[0].setCenter(g_target_blueball.getCenter().x, g_target_blueball.getCenter().y, g_target_blueball.getCenter().z);
+                    g_sphere[0].activate();
+                    free_shot = false;
+                }
+                else {
+                    D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
+                    D3DXVECTOR3	whitepos = g_sphere[0].getCenter();
+                    double theta = acos(sqrt(pow(targetpos.x - whitepos.x, 2)) / sqrt(pow(targetpos.x - whitepos.x, 2) +
 
-                    pow(targetpos.z - whitepos.z, 2)));
-                if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }
-                if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; }
-                if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0) { theta = PI + theta; }
+                        pow(targetpos.z - whitepos.z, 2)));
+                    if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }
+                    if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; }
+                    if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0) { theta = PI + theta; }
 
-                double distance = sqrt(pow(targetpos.x - whitepos.x, 2) + pow(targetpos.z - whitepos.z, 2));
-                g_sphere[0].setPower(distance * cos(theta), distance * sin(theta));
+                    double distance = sqrt(pow(targetpos.x - whitepos.x, 2) + pow(targetpos.z - whitepos.z, 2));
+                    g_sphere[0].setPower(distance * cos(theta), distance * sin(theta));
+                }
             }
             break;
 
