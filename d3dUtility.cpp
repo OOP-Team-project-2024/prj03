@@ -1,4 +1,4 @@
-//////////////////////////////////////////////////////////////////////////////////////////////////
+﻿//////////////////////////////////////////////////////////////////////////////////////////////////
 // 
 // File: d3dUtility.cpp
 // 
@@ -162,7 +162,7 @@ int d3d::EnterMsgLoop( bool (*ptr_display)(float timeDelta) )
         {	
 			double currTime  = (double)timeGetTime();
 			double timeDelta = (currTime - lastTime)*0.0007;
-			ptr_display((float)timeDelta);
+			ptr_display((float)timeDelta); // 이 부분에서 지속적으로 반복하여 Display 함수를 실행
 
 			lastTime = currTime;
         }
