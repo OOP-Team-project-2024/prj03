@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cassert>
+#include <algorithm>
 
 
 
@@ -62,12 +63,13 @@ private:
     float					m_velocity_x;
     float					m_velocity_z;
     D3DXVECTOR3 m_prevPos; // 이전 프레임에서의 위치
-    float m_rotationAngle; // 누적 회전 각도
+    D3DXMATRIX m_rotation; // 누적 회전 각도
 
 public:
     CSphere(void) : isActive(true)
     {
         D3DXMatrixIdentity(&m_mLocal);
+        D3DXMatrixIdentity(&m_rotation);
         ZeroMemory(&m_mtrl, sizeof(m_mtrl));
         m_radius = 0;
         m_velocity_x = 0;
@@ -91,8 +93,6 @@ private:
 public:
     bool create(IDirect3DDevice9* pDevice, LPCSTR textureFileName = NULL, D3DXCOLOR color = d3d::WHITE)
     {
-        m_prevPos = getCenter();
-        m_rotationAngle = 0.0f;
         if (NULL == pDevice)
             return false;
 
@@ -168,6 +168,13 @@ public:
         return true;
     }
 
+    void rotate(float angleDegrees, const D3DXVECTOR3& axis)
+    {
+        D3DXMATRIX rot;
+        D3DXMatrixRotationAxis(&rot, &axis, D3DXToRadian(angleDegrees));
+        m_rotation = rot * m_rotation;
+    }
+	
     void destroy(void)
     {
         if (m_pSphereMesh != NULL) {
@@ -184,15 +191,25 @@ public:
     {
         if (NULL == pDevice)
             return;
-        pDevice->SetTransform(D3DTS_WORLD, &mWorld);
-        pDevice->MultiplyTransform(D3DTS_WORLD, &m_mLocal);
-        pDevice->SetMaterial(&m_mtrl);
+        // 현재 위치를 기반으로 한 이동 행렬 생성
+        D3DXMATRIX mTranslation;
+        D3DXMatrixTranslation(&mTranslation, center_x, center_y, center_z);
 
+        // 회전과 이동을 결합
+        D3DXMATRIX mWorldLocal = m_rotation * mTranslation;
+
+        // 최종 월드 행렬 계산 (로컬 변환 후 월드 변환)
+        D3DXMATRIX finalWorld = mWorldLocal * mWorld;
+        pDevice->SetTransform(D3DTS_WORLD, &finalWorld);
+
+        // 머티리얼과 텍스처 설정
+        pDevice->SetMaterial(&m_mtrl);
         pDevice->SetTexture(0, m_pTexture);
 
+        // 구 그리기
         m_pSphereMesh->DrawSubset(0);
 
-        // After drawing, reset the texture
+        // 텍스처 리셋
         pDevice->SetTexture(0, NULL);
     }
 
@@ -262,49 +279,80 @@ public:
             this->setCenter(pos1.x + correctionX, pos1.y, pos1.z + correctionZ);
             ball.setCenter(pos2.x - correctionX, pos2.y, pos2.z - correctionZ);
         }
-    }
+	}
 
-    void ballUpdate(float timeDiff)
-    {
-        const float TIME_SCALE = 3.3;
-        D3DXVECTOR3 cord = this->getCenter();
-        double vx = abs(this->getVelocity_X());
-        double vz = abs(this->getVelocity_Z());
+	void ballUpdate(float timeDiff) 
+	{
+		const float TIME_SCALE = 3.3;
+		D3DXVECTOR3 cord = this->getCenter();
+		double vx = abs(this->getVelocity_X());
+		double vz = abs(this->getVelocity_Z());
 
-        if (vx > 0.01 || vz > 0.01)
+
+		if(vx > 0.01 || vz > 0.01)
+		{
+			float tX = cord.x + TIME_SCALE*timeDiff*m_velocity_x;
+			float tZ = cord.z + TIME_SCALE*timeDiff*m_velocity_z;
+
+			//correction of position of ball
+			// Please uncomment this part because this correction of ball position is necessary when a ball collides with a wall
+			if(tX >= (4.5 - M_RADIUS))
+				tX = 4.5 - M_RADIUS;
+			else if(tX <=(-4.5 + M_RADIUS))
+				tX = -4.5 + M_RADIUS;
+			else if(tZ <= (-3 + M_RADIUS))
+				tZ = -3 + M_RADIUS;
+			else if(tZ >= (3 - M_RADIUS))
+				tZ = 3 - M_RADIUS;
+			
+			this->setCenter(tX, cord.y, tZ);
+
+		}
+		else { this->setPower(0,0);}
+		//this->setPower(this->getVelocity_X() * DECREASE_RATE, this->getVelocity_Z() * DECREASE_RATE);
+		double rate = 1 -  (1 - DECREASE_RATE)*timeDiff * 400;
+		if(rate < 0 )
+			rate = 0;
+		this->setPower(getVelocity_X() * rate, getVelocity_Z() * rate);
+        float distance = sqrt(m_velocity_x * m_velocity_x + m_velocity_z * m_velocity_z) * TIME_SCALE * timeDiff;
+
+        // 이동 거리와 구의 반지름을 기반으로 회전 각도 계산
+        float angle = distance / M_RADIUS;
+
+        // 속도 벡터에 수직인 회전 축 계산 (x-z 평면에서)
+        D3DXVECTOR3 velocity(m_velocity_x, 0.0f, m_velocity_z);
+        D3DXVECTOR3 up(0.0f, 1.0f, 0.0f); // 월드의 업 벡터
+        D3DXVECTOR3 axis;
+
+        if (D3DXVec3Length(&velocity) == 0.0f)
         {
-            float tX = cord.x + TIME_SCALE * timeDiff * m_velocity_x;
-            float tZ = cord.z + TIME_SCALE * timeDiff * m_velocity_z;
-
-            //correction of position of ball
-            // Please uncomment this part because this correction of ball position is necessary when a ball collides with a wall
-            if (tX >= (4.5 - M_RADIUS))
-                tX = 4.5 - M_RADIUS;
-            else if (tX <= (-4.5 + M_RADIUS))
-                tX = -4.5 + M_RADIUS;
-            else if (tZ <= (-3 + M_RADIUS))
-                tZ = -3 + M_RADIUS;
-            else if (tZ >= (3 - M_RADIUS))
-                tZ = 3 - M_RADIUS;
-
-            this->setCenter(tX, cord.y, tZ);
-
-            // 이동 벡터 계산
-            D3DXVECTOR3 moveDir = getCenter() - m_prevPos;
-
-
+            // 속도가 없으면 회전 없음
+            axis = D3DXVECTOR3(0.0f, 1.0f, 0.0f); // 기본 축
         }
-        else { this->setPower(0, 0); }
-        //this->setPower(this->getVelocity_X() * DECREASE_RATE, this->getVelocity_Z() * DECREASE_RATE);
-        double rate = 1 - (1 - DECREASE_RATE) * timeDiff * 400;
-        if (rate < 0)
-            rate = 0;
-        this->setPower(getVelocity_X() * rate, getVelocity_Z() * rate);
-    }
+        else
+        {
+            // 속도 벡터에 수직인 축 계산
+            D3DXVec3Cross(&axis,&up,&velocity);
+            D3DXVec3Normalize(&axis, &axis);
+        }
 
-    double getVelocity_X() { return this->m_velocity_x; }
-    double getVelocity_Z() { return this->m_velocity_z; }
+        // 회전 행렬 생성
+        D3DXMATRIX rot;
+        D3DXMatrixRotationAxis(&rot, &axis, angle);
 
+        // 누적 회전 행렬 업데이트
+        m_rotation = m_rotation * rot;
+
+	}
+
+	double getVelocity_X() { return this->m_velocity_x;	}
+	double getVelocity_Z() { return this->m_velocity_z; }
+
+	void setPower(double vx, double vz)
+	{
+		this->m_velocity_x = vx;
+		this->m_velocity_z = vz;
+	}
     void setPower(double vx, double vz)
     {
         this->m_velocity_x = vx;
@@ -843,27 +891,62 @@ bool Setup()
     // create plane and set the position
     if (false == g_legoPlane.create(Device, -1, -1, 9, 0.03f, 6, d3d::GREEN)) return false;
     g_legoPlane.setPosition(0.0f, -0.0006f / 5, 0.0f);
+	// create walls and set the position. note that there are four walls
+	if (false == g_legowall[0].create(Device, -1, -1, 9, 0.3f, 0.12f, d3d::DARKRED)) return false;
+	g_legowall[0].setPosition(0.0f, 0.12f, 3.06f);
+	if (false == g_legowall[1].create(Device, -1, -1, 9, 0.3f, 0.12f, d3d::DARKRED)) return false;
+	g_legowall[1].setPosition(0.0f, 0.12f, -3.06f);
+	if (false == g_legowall[2].create(Device, -1, -1, 0.12f, 0.3f, 6.24f, d3d::DARKRED)) return false;
+	g_legowall[2].setPosition(4.56f, 0.12f, 0.0f);
+	if (false == g_legowall[3].create(Device, -1, -1, 0.12f, 0.3f, 6.24f, d3d::DARKRED)) return false;
+	g_legowall[3].setPosition(-4.56f, 0.12f, 0.0f);
 
-    // create walls and set the position. note that there are four walls
-    if (false == g_legowall[0].create(Device, -1, -1, 9, 0.3f, 0.12f, d3d::DARKRED)) return false;
-    g_legowall[0].setPosition(0.0f, 0.12f, 3.06f);
-    if (false == g_legowall[1].create(Device, -1, -1, 9, 0.3f, 0.12f, d3d::DARKRED)) return false;
-    g_legowall[1].setPosition(0.0f, 0.12f, -3.06f);
-    if (false == g_legowall[2].create(Device, -1, -1, 0.12f, 0.3f, 6.24f, d3d::DARKRED)) return false;
-    g_legowall[2].setPosition(4.56f, 0.12f, 0.0f);
-    if (false == g_legowall[3].create(Device, -1, -1, 0.12f, 0.3f, 6.24f, d3d::DARKRED)) return false;
-    g_legowall[3].setPosition(-4.56f, 0.12f, 0.0f);
+    std::vector<int> availableIndices;
+    for (int pos = 1; pos < 16; pos++) {
+        if (pos != 5) { // 8번 공은 spherePos[5]에 고정
+            availableIndices.push_back(pos);
+        }
+    }
 
-    // create four balls and set the position
-    for (i = 0; i < 16; i++) {
+    // 인덱스 섞기
+    std::random_shuffle(availableIndices.begin(), availableIndices.end());
+
+	// create four balls and set the position
+	for (i=0;i<16;i++) {
         char textureFileName[256];
         sprintf(textureFileName, "image\\Ball%d.jpg", i);
         if (false == g_sphere[i].create(Device, textureFileName)) return false;
-        g_sphere[i].setCenter(spherePos[i][0], (float)M_RADIUS, spherePos[i][1]);
-        g_sphere[i].setPower(0, 0);
-    }
 
-    // create blue ball for set direction
+        float x, z;
+        if (i == 0) {
+            // 0번 공(큐볼)은 spherePos[0]에 고정
+            x = spherePos[0][0];
+            z = spherePos[0][1];
+        }
+        else if (i == 8) {
+            // 8번 공은 spherePos[5]에 고정
+            x = spherePos[5][0];
+            z = spherePos[5][1];
+        }
+        else {
+            // 나머지 공들은 랜덤하게 섞인 인덱스에서 위치 선택
+            if (availableIndices.empty()) {
+                MessageBox(NULL, "Not enough positions to assign all balls.", "Error", MB_OK);
+                return false;
+            }
+            int posIndex = availableIndices.back();
+            availableIndices.pop_back();
+            x = spherePos[posIndex][0];
+            z = spherePos[posIndex][1];
+        }
+
+        // 공의 위치 설정
+        g_sphere[i].setCenter(x, (float)M_RADIUS, z);
+        g_sphere[i].setPower(0, 0);
+        g_sphere[i].rotate(90.0f, D3DXVECTOR3(0.0f, 0.0f, 1.0f));
+	}
+	
+	// create blue ball for set direction
     if (false == g_target_blueball.create(Device, NULL, d3d::BLUE)) return false;
     g_target_blueball.setCenter(.0f, (float)M_RADIUS, .0f);
 
