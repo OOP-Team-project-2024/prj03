@@ -306,6 +306,7 @@ public:
 
         // 속도 벡터에 수직인 회전 축 계산 (x-z 평면에서)
         D3DXVECTOR3 velocity(m_velocity_x, 0.0f, m_velocity_z);
+        D3DXVECTOR3 up(0.0f, 1.0f, 0.0f); // 월드의 업 벡터
         D3DXVECTOR3 axis;
 
         if (D3DXVec3Length(&velocity) == 0.0f)
@@ -316,7 +317,7 @@ public:
         else
         {
             // 속도 벡터에 수직인 축 계산
-            axis = D3DXVECTOR3(m_velocity_z, 0.0f, -m_velocity_x);
+            D3DXVec3Cross(&axis,&up,&velocity);
             D3DXVec3Normalize(&axis, &axis);
         }
 
@@ -325,7 +326,7 @@ public:
         D3DXMatrixRotationAxis(&rot, &axis, angle);
 
         // 누적 회전 행렬 업데이트
-        m_rotation = rot * m_rotation;
+        m_rotation = m_rotation * rot;
 
 	}
 
