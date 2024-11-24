@@ -817,7 +817,7 @@ bool foul() {
 }
 
 // 다음 샷에서의 turn에 관한 값을 할당.
-void next_turn() { 
+void next_shot() { 
     if (foul()) {
         turn = !turn;
         group = !group;
@@ -853,6 +853,9 @@ void next_turn() {
             group = !group;
         }
     }
+    // 위의 판단 이후, 다음 shot 직후의 판단을 위한 초기화
+    cusion_count = 0;
+    solid_in = stripe_in = white_in = black_in = false;
     break_shot = false;
 }; 
 
@@ -1010,7 +1013,6 @@ void Cleanup(void)
     d3d::CleanupFont();     //폰트 정리
 }
 
-
 // timeDelta represents the time between the current image frame and the last image frame.
 // the distance of moving balls should be "velocity * timeDelta"
 bool Display(float timeDelta) {
@@ -1023,32 +1025,32 @@ bool Display(float timeDelta) {
 
         shot_now = false;
         for (int i = 0; i < 16; i++) {
-            if (g_sphere[i].isActiveBall() && pow(g_sphere[i].getVelocity_X(), 2) + pow(g_sphere[i].getVelocity_Z(), 2) != 0) {
+            if (g_sphere[i].isActiveBall() && g_sphere[i].getVelocity_X() != 0 && g_sphere[i].getVelocity_Z() != 0) {
                 shot_now = true;
                 break;
             }
         }
+
         // free ball을 놓는 과정에서 공이 구멍에 들어가게 되면 free_shot이 다시 주어짐
-        // shot 자체는 진행중이지 않은 상황(shot_last와 shot_now 모두 false로 유지되는 상황), 그런데 큐 공이 구멍에 빠져서 다시금 재 배치 해야함.
-        if (!shot_last && !shot_now && white_in) {
+        // shot 자체는 진행중이지 않은 상황(shot_last와 shot_now 모두 false로 유지되는 상황) 임에도 foul이기 떄문에 턴이 넘어가고 다시 free_shot이 주어짐.
+        if (!shot_last && !shot_now && white_in && !free_shot) {
             free_shot = true;
+            turn = !turn;
+            group = !group;
         }
-        if (shot_now != shot_last && !shot_now) { // 공이 멈춘 직후, shot과 shot 사이의 첫 프레임에 도달하였을 때 판단을 내림
-            if (black_in) { // 게임의 종료 여부를 판단
+
+        // 공이 멈춘 직후 의 frame에서 직전의 shot의 값을 통해 게임의 진행 판단.
+        if (shot_last && !shot_now) { 
+            // 게임의 종료 여부를 판단
+            if (black_in) { 
                 win = result();
             }
             else { // 종료되지 않았다면
-                next_turn();
-
-                cusion_count = 0;
-                solid_in = stripe_in = white_in = black_in = false;
+                next_shot();
             }
-            
-            // 위의 판단 이후, 다음 shot 직후의 판단을 위한 초기화
-            cusion_count = 0;
-            solid_in = stripe_in = white_in = black_in = false;
         }
-        // 다음 frame의 shot_last 갱신
+
+        // 다음 frame의 샷 진행 여부를 update한다.
         shot_last = shot_now;
 
         // Ball updates and pocket collision
@@ -1237,7 +1239,9 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     if (free_shot) { // free_shot의 경우 blue_ball의 위치로 흰 공을 이동시키고 activate를 한다.
                         g_sphere[0].setCenter(g_target_blueball.getCenter().x, g_target_blueball.getCenter().y, g_target_blueball.getCenter().z);
                         g_sphere[0].activate();
+                        g_sphere[0].setPower(0, 0);
                         free_shot = false;
+                        white_in = false;
                     }
                     else {
                         D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
