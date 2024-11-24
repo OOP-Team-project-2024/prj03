@@ -1021,13 +1021,6 @@ bool Display(float timeDelta) {
         // 각 샷이 종료될 때마다 게임의 종료, 파울 여부, 턴의 전환, 공의 그룹 할당을 판단한다.
         // 현재 프레임의 shot 진행 여부 판단.
 
-        // free ball을 다시금 구멍에 넣게되면 shot이 시작되지 않았다 판단하기에
-        // free ball이 구멍에 넣어지지 않도록 위치를 설정할 떄까지 계속해서 free ball을 활성화함.
-        if (white_in) {
-            free_shot = true;
-            white_in = false;
-        }
-
         shot_now = false;
         for (int i = 0; i < 16; i++) {
             if (g_sphere[i].isActiveBall() && pow(g_sphere[i].getVelocity_X(), 2) + pow(g_sphere[i].getVelocity_Z(), 2) != 0) {
@@ -1035,17 +1028,20 @@ bool Display(float timeDelta) {
                 break;
             }
         }
+        // free ball을 놓는 과정에서 공이 구멍에 들어가게 되면 free_shot이 다시 주어짐
+        // shot 자체는 진행중이지 않은 상황(shot_last와 shot_now 모두 false로 유지되는 상황), 그런데 큐 공이 구멍에 빠져서 다시금 재 배치 해야함.
+        if (!shot_last && !shot_now && white_in) {
+            free_shot = true;
+        }
         if (shot_now != shot_last && !shot_now) { // 공이 멈춘 직후, shot과 shot 사이의 첫 프레임에 도달하였을 때 판단을 내림
             if (black_in) { // 게임의 종료 여부를 판단
                 win = result();
             }
             else { // 종료되지 않았다면
-                if (!select_group) {
-                    next_turn();
+                next_turn();
 
-                    cusion_count = 0;
-                    solid_in = stripe_in = white_in = black_in = false;
-                }
+                cusion_count = 0;
+                solid_in = stripe_in = white_in = black_in = false;
             }
             
             // 위의 판단 이후, 다음 shot 직후의 판단을 위한 초기화
