@@ -455,51 +455,41 @@ public:
 
     bool hasIntersected(CSphere& ball)
     {
-        float leftXBoundary = this->m_x - (this->m_width / 2);
-        float rightXBoundary = this->m_x + (this->m_width / 2);
-
-        float frontZBoundary = this->m_z - (this->m_depth / 2);
-        float backZBoundary = this->m_z + (this->m_depth / 2);
-
         float ballX = ball.getCenter().x;
         float ballZ = ball.getCenter().z;
 
-        bool isWithinXBounds = (leftXBoundary <= ballX && ballX <= rightXBoundary);
-        bool isWithinZBounds = (frontZBoundary <= ballZ && ballZ <= backZBoundary);
+        // 벽의 경계 
+        float leftBoundary = m_x - (m_width / 2);
+        float rightBoundary = m_x + (m_width / 2);
+        float frontBoundary = m_z - (m_depth / 2);
+        float backBoundary = m_z + (m_depth / 2);
 
-        if (isWithinXBounds || isWithinZBounds) {
-            // Colliding vertically
-            if (abs(this->m_x - ballX) <= this->m_width / 2 + ball.getRadius() &&
-                abs(this->m_z - ballZ) <= this->m_depth / 2 + ball.getRadius()) {
-                return true;
-            }
-        }
-        else {
-            // Colliding with an edge
-        }
+        // 공과 벽의 충돌 여부 확인
+        bool intersectsX = (ballX + ball.getRadius() >= leftBoundary) && (ballX - ball.getRadius() <= rightBoundary);
+        bool intersectsZ = (ballZ + ball.getRadius() >= frontBoundary) && (ballZ - ball.getRadius() <= backBoundary);
 
-        return false;
+        return intersectsX && intersectsZ;
     }
 
     void hitBy(CSphere& ball)
     {
-        if (hasIntersected(ball))
-        {
-            float ball_vx = (float)ball.getVelocity_X();
-            float ball_vz = (float)ball.getVelocity_Z();
+        if (hasIntersected(ball)) {
+            D3DXVECTOR3 ballVelocity(ball.getVelocity_X(), 0.0f, ball.getVelocity_Z());
+            D3DXVECTOR3 wallNormal;
 
-            // 수평
-            if (this->m_x == 0.0f)
-            {
-                ball.setPower(ball_vx, -ball_vz);
-
+            if (m_width > m_depth) {
+                // 수평 
+                wallNormal = D3DXVECTOR3(0.0f, 0.0f, (ball.getCenter().z > m_z) ? -1.0f : 1.0f);
             }
-            else if (this->m_z == 0.0f)
-            {
-                // 수직
-                ball.setPower(-ball_vx, ball_vz);
-
+            else {
+                // 수직 
+                wallNormal = D3DXVECTOR3((ball.getCenter().x > m_x) ? -1.0f : 1.0f, 0.0f, 0.0f);
             }
+
+            // 반사 벡터 계산
+            D3DXVECTOR3 reflectedVelocity = ballVelocity - 2 * D3DXVec3Dot(&ballVelocity, &wallNormal) * wallNormal;
+
+            ball.setPower(reflectedVelocity.x, reflectedVelocity.z);
 
             // 벽에 공이 맞은 횟수 카운트
             cusion_count++;
