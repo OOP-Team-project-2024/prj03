@@ -218,18 +218,18 @@ public:
     }
 
     // 공 두 개 사이의 거리 계산 함수
-    float distanceTo(const CSphere& other, bool squared = false) const {
+    float distanceTo(const CSphere& other) const {
         float dx = this->center_x - other.center_x;
         float dy = this->center_y - other.center_y;
         float dz = this->center_z - other.center_z;
 
         float distanceSquared = dx * dx + dy * dy + dz * dz;
-        return squared ? distanceSquared : sqrt(distanceSquared);
+        return sqrt(distanceSquared);
     }
 
     bool CSphere::hasIntersected(CSphere& ball) {
         float radiusSum = M_RADIUS * 2;
-        return this->distanceTo(ball, true) <= (radiusSum * radiusSum);
+        return this->distanceTo(ball) <= radiusSum;
     }
 
     void hitBy(CSphere& ball)
