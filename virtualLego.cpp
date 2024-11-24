@@ -887,19 +887,19 @@ bool Setup()
     g_legoPlane.setPosition(0.0f, -0.0006f / 5, 0.0f);
 	// create walls and set the position. note that there are four walls
     // 상단 벽
-    if (false == g_legowall[0].create(Device, -1, -1, 9.5f, 0.3f, 0.5f, d3d::DARKRED)) return false;
+    if (false == g_legowall[0].create(Device, -1, -1, 9.5f, 0.7f, 0.5f, d3d::DARKRED)) return false;
     g_legowall[0].setPosition(0.0f, 0.12f, 3.25f);
 
     // 하단 벽
-    if (false == g_legowall[1].create(Device, -1, -1, 9.5f, 0.3f, 0.5f, d3d::DARKRED)) return false;
+    if (false == g_legowall[1].create(Device, -1, -1, 9.5f, 0.7f, 0.5f, d3d::DARKRED)) return false;
     g_legowall[1].setPosition(0.0f, 0.12f, -3.25f);
 
     // 오른쪽 벽
-    if (false == g_legowall[2].create(Device, -1, -1, 0.25f, 0.3f, 6.0f, d3d::DARKRED)) return false;
+    if (false == g_legowall[2].create(Device, -1, -1, 0.25f, 0.7f, 6.0f, d3d::DARKRED)) return false;
     g_legowall[2].setPosition(4.625f, 0.12f, 0.0f);
 
     // 왼쪽 벽
-    if (false == g_legowall[3].create(Device, -1, -1, 0.25f, 0.3f, 6.0f, d3d::DARKRED)) return false;
+    if (false == g_legowall[3].create(Device, -1, -1, 0.25f, 0.7f, 6.0f, d3d::DARKRED)) return false;
     g_legowall[3].setPosition(-4.625f, 0.12f, 0.0f);
 
     std::vector<int> availableIndices;
