@@ -217,15 +217,19 @@ public:
         pDevice->SetTexture(0, NULL);
     }
 
-    bool CSphere::hasIntersected(CSphere& ball) {
-        float dx = this->center_x - ball.center_x;
-        float dy = this->center_y - ball.center_y;
-        float dz = this->center_z - ball.center_z;
+    // 공 두 개 사이의 거리 계산 함수
+    float distanceTo(const CSphere& other, bool squared = false) const {
+        float dx = this->center_x - other.center_x;
+        float dy = this->center_y - other.center_y;
+        float dz = this->center_z - other.center_z;
+
         float distanceSquared = dx * dx + dy * dy + dz * dz;
+        return squared ? distanceSquared : sqrt(distanceSquared);
+    }
 
+    bool CSphere::hasIntersected(CSphere& ball) {
         float radiusSum = M_RADIUS * 2;
-
-        return distanceSquared <= (radiusSum * radiusSum);
+        return this->distanceTo(ball, true) <= (radiusSum * radiusSum);
     }
 
     void hitBy(CSphere& ball)
@@ -244,7 +248,7 @@ public:
             // Calculate normal and tangent vectors
             float dx = pos1.x - pos2.x;
             float dz = pos1.z - pos2.z;
-            float distance = sqrt(dx * dx + dz * dz);
+            float distance = this->distanceTo(ball);
 
             // Normalize the normal vector
             float nx = dx / distance;
@@ -738,7 +742,7 @@ bool select_group; // 다음 샷을 시작하기 전 select를 해야함을 알�
 RECT turn_rect = { 10, 10, 300, 50 };     // 첫 번째 박스 (위치 변경 없음)
 RECT group_rect = { 10, 50, 300, 90 };    // 두 번째 박스 (아래로 이동)
 RECT win_rect = { 10, 90, 300, 130 };     // 세 번째 박스 (아래로 이동)
-RECT select_rect = { 10, 130, 300, 170 }; // 네 번째 박스 (아래로 이동)
+RECT select_rect = { 10, 130, 1000, 170 }; // 네 번째 박스 (아래로 이동)
 RECT free_shot_rect = { 10, 170, 300, 210 }; // 네 번째 박스 (아래로 이동)
 
 // -----------------------------------------------------------------------------
@@ -827,7 +831,6 @@ void next_turn() {
                 if (!break_shot) {
                     if (solid_in && stripe_in) {
                         select_group = true;
-                        open = false;
                     }
                     else {
                         group = solid_in ? true : false;
@@ -837,7 +840,7 @@ void next_turn() {
             }
             else {
                 // 플레이어가 쳐야하는 공과 들어간 공의 종류가 다르면 턴 전환이 발생함
-                if ((solid_in && !stripe_in) && group ||
+                if ((solid_in && !stripe_in) && !group ||
                     (!solid_in && stripe_in) && group) {
                     turn = !turn;
                     group = !group;
@@ -1037,7 +1040,12 @@ bool Display(float timeDelta) {
                 win = result();
             }
             else { // 종료되지 않았다면
-                next_turn();
+                if (!select_group) {
+                    next_turn();
+
+                    cusion_count = 0;
+                    solid_in = stripe_in = white_in = black_in = false;
+                }
             }
             
             // 위의 판단 이후, 다음 shot 직후의 판단을 위한 초기화
@@ -1203,17 +1211,33 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             if (select_group) {
                 group = true;
                 select_group = false;
+                open = false;
+
+                cusion_count = 0;
+                solid_in = stripe_in = white_in = black_in = false;
             }
             break;
         case 'B':
             if (select_group) {
                 group = false;
                 select_group = false;
+                open = false;
+
+                cusion_count = 0;
+                solid_in = stripe_in = white_in = black_in = false;
             }
             break;
         case VK_SPACE: // 스페이스바를 누르는 경우
             if (!select_group) {
                 if (!shot_last) { // 직전의 shot이 종료되어야 다음 shot을 할 수 있다.
+                    D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
+                    D3DXVECTOR3 whitepos = g_sphere[0].getCenter();
+
+                    // 최소 거리 확인
+                    float distance = g_sphere[0].distanceTo(g_target_blueball);
+                    const float MIN_DISTANCE = M_RADIUS / 2.0f; // 최소 거리 설정
+
+                    if (distance < MIN_DISTANCE)  break; // 발사하지 않음
                     if (free_shot) { // free_shot의 경우 blue_ball의 위치로 흰 공을 이동시키고 activate를 한다.
                         g_sphere[0].setCenter(g_target_blueball.getCenter().x, g_target_blueball.getCenter().y, g_target_blueball.getCenter().z);
                         g_sphere[0].activate();
